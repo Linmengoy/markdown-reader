@@ -142,6 +142,16 @@ function registerIpc(){
     try { return (await fs.stat(p)).isDirectory(); } catch { return false; }
   });
 
+  // 轻量探测文件是否被外部改动（AI 写入 / 其他编辑器保存）
+  ipcMain.handle("fs:stat", async (_e, p) => {
+    try {
+      const s = await fs.stat(p);
+      return { exists: true, mtimeMs: s.mtimeMs, size: s.size };
+    } catch {
+      return { exists: false, mtimeMs: 0, size: 0 };
+    }
+  });
+
   ipcMain.handle("fs:defaultPaths", async () => ({
     documents: app.getPath("documents"),
     downloads: app.getPath("downloads"),

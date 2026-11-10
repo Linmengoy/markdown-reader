@@ -20,6 +20,7 @@ const api = {
   listDir:       (root) => ipcRenderer.invoke("fs:listDir", root),
   exists:        (p) => ipcRenderer.invoke("fs:exists", p),
   isDir:         (p) => ipcRenderer.invoke("fs:isDir", p),
+  statFile:      (p) => ipcRenderer.invoke("fs:stat", p),
   defaultPaths:  () => ipcRenderer.invoke("fs:defaultPaths"),
 
   getProject:    () => ipcRenderer.invoke("state:getProject"),
