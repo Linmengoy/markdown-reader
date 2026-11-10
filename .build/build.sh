@@ -19,20 +19,22 @@ env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS ./node_modules/.bin/electron make-ic
 echo "==> 第一步：打包目录版"
 node_modules/.bin/electron-builder --win --x64 --dir 2>&1 | grep -Ev "^\s*$" | tail -4
 
-# 兜底：若 afterPack 阶段 rcedit 未成功（文件被占用），在此补写一次
+# 兜底：若 afterPack 阶段 rcedit 未成功（文件刚生成被占用/杀软扫描），在此补写。
+# 必须确保成功：图标/版本写不进去，exe 会显示成通用程序图标，且不易察觉。
 RC="$LOCALAPPDATA/electron-builder/Cache/winCodeSign/winCodeSign-2.6.0/rcedit-x64.exe"
 TARGET="$ROOT/dist/win-unpacked/$EXE_NAME"
 if [ -f "$RC" ] && [ -f "$TARGET" ]; then
-  for i in 1 2 3; do
+  for i in 1 2 3 4 5 6 7 8; do
     if "$RC" "$TARGET" \
         --set-version-string FileDescription "Markdown 小说阅读器" \
         --set-version-string ProductName "Markdown小说阅读器" \
         --set-version-string CompanyName "local" \
         --set-icon build/icon.ico >/dev/null 2>&1; then
-      echo "==> 图标已写入 exe"
+      echo "==> 图标已写入 exe（第 $i 次）"
       break
     fi
     sleep 2
+    if [ "$i" = "8" ]; then echo "!!! rcedit 连续失败：exe 图标/版本未写入，勿直接发布"; exit 1; fi
   done
 fi
 
