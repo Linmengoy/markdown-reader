@@ -26,6 +26,14 @@
 
 ![文件树与草稿/已修订](docs/screenshot-tree.png)
 
+编辑模式：左源码带行号，右预览带段落号。
+
+![编辑模式](docs/screenshot-edit.png)
+
+源码全屏：`Ctrl+Shift+E`，只剩源码，专心码字。
+
+![源码全屏](docs/screenshot-source.png)
+
 ## 直接用
 
 **Windows（推荐）**：下载仓库 Releases 里的 `Markdown小说阅读器.exe`，双击即用 —— 单文件便携版，不安装、不写注册表，可直接读写本机文件。
