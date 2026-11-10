@@ -10,6 +10,9 @@ export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-b
 ROOT="$(cd .. && pwd)"
 EXE_NAME="Markdown小说阅读器.exe"
 
+echo "==> 清理上一次的旧产物（dist_old_* / 临时目录）"
+rm -rf "$ROOT"/dist_old_* "$ROOT"/dist_[0-9]* "$ROOT"/_trash_delete_me 2>/dev/null || true
+
 echo "==> 同步前端页面"
 cp "$ROOT/markdown-novel-reader.html" app/
 
