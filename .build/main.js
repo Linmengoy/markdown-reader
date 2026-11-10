@@ -149,7 +149,45 @@ function registerIpc(){
   }));
 
   ipcMain.handle("state:getProject", async () => readState().project || null);
-  ipcMain.handle("state:setProject", async (_e, o) => { patchState({ project: o }); return true; });
+
+  // 项目状态按文件夹（root）各存一份。以前只存单个 project，切到另一个文件夹就把它覆盖了，
+  // 回到原文件夹时「已修订 / 折叠 / 上次打开的文件」全丢。
+  const projKey = (r) => String(r || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
+  ipcMain.handle("state:setProject", async (_e, o) => {
+    const s = readState();
+    const projects = (s.projects && typeof s.projects === "object") ? s.projects : {};
+    const k = projKey(o && o.root);
+    if (k) projects[k] = o;
+    patchState({ project: o, projects });
+    return true;
+  });
+
+  ipcMain.handle("state:getProjectByRoot", async (_e, root) => {
+    const s = readState();
+    const projects = s.projects || {};
+    return projects[projKey(root)] || null;
+  });
+
+  // 「已修订」全局索引：key 是文件的绝对路径。
+  // 状态绑在文件上而不是绑在「当前项目」上，换文件夹 / 换项目打开同一个文件也还认得。
+  ipcMain.handle("state:getRevIndex", async () => {
+    const r = readState().revs;
+    return (r && typeof r === "object") ? r : {};
+  });
+
+  ipcMain.handle("state:mergeRevIndex", async (_e, obj) => {
+    if (!obj || typeof obj !== "object") return false;
+    const s = readState();
+    const revs = (s.revs && typeof s.revs === "object") ? s.revs : {};
+    let changed = false;
+    for (const k of Object.keys(obj)){
+      if (obj[k]){ if (revs[k] !== 1){ revs[k] = 1; changed = true; } }
+      else if (k in revs){ delete revs[k]; changed = true; }
+    }
+    if (changed) patchState({ revs });
+    return true;
+  });
 
   // 阅读设置 + 我的配置：单独落一份 config.json，即使浏览器缓存被清也能还原
   ipcMain.handle("cfg:get", async () => ({ path: configPath(), data: readJSON(configPath(), null) }));

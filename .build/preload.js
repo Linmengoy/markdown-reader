@@ -24,6 +24,9 @@ const api = {
 
   getProject:    () => ipcRenderer.invoke("state:getProject"),
   setProject:    (o) => ipcRenderer.invoke("state:setProject", o),
+  getProjectByRoot: (root) => ipcRenderer.invoke("state:getProjectByRoot", root),
+  getRevIndex:   () => ipcRenderer.invoke("state:getRevIndex"),
+  mergeRevIndex: (o) => ipcRenderer.invoke("state:mergeRevIndex", o),
 
   getConfig:     () => ipcRenderer.invoke("cfg:get"),
   setConfig:     (o) => ipcRenderer.invoke("cfg:set", o),

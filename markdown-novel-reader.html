@@ -2332,6 +2332,29 @@ async function scanDir(dir, prefix){
 
 async function loadProject(handle, savedPath, skipOpen, collapsedList, statusList){
   toast("正在扫描文件夹…", 1200);
+
+  // 切换文件夹时（打开文件夹按钮 / 最近项目）调用方一般拿不到上一次的记录，
+  // 这里按文件夹自己把历史取回来，否则下面的 persistProject 会用空记录覆盖掉它。
+  if(statusList === undefined || collapsedList === undefined){
+    const root = handle && handle.__native;
+    if(NATIVE && root){
+      try{
+        const prev = await NATIVE.getProjectByRoot(root);
+        if(prev && typeof prev === "object"){
+          if(collapsedList === undefined && Array.isArray(prev.collapsed)) collapsedList = prev.collapsed;
+          if(statusList === undefined && prev.status && typeof prev.status === "object") statusList = prev.status;
+          if(!savedPath && prev.currentPath) savedPath = prev.currentPath;
+        }
+      }catch(e){}
+    }else if(handle && handle.name){
+      // 纯浏览器模式：状态按项目名落在 localStorage
+      try{
+        const raw = localStorage.getItem("mdnr-status:" + handle.name);
+        if(raw && statusList === undefined) statusList = JSON.parse(raw);
+      }catch(e){}
+    }
+  }
+
   let files = [];
   try{ files = await scanDir(handle); }catch(e){ files = []; }
 
@@ -2346,12 +2369,22 @@ async function loadProject(handle, savedPath, skipOpen, collapsedList, statusLis
     }
   }
 
+  // 再叠一层全局索引：状态绑在文件绝对路径上，换个文件夹打开同一个文件也能带出「已修订」
+  await ensureRevIndex();
+  if(Object.keys(revIndex).length){
+    for(const f of files){
+      const full = f.handle && f.handle.__native;
+      if(full && revIndex[normAbs(full)] === 1) status[f.path] = 1;
+    }
+  }
+
   state.fileFilterStatus = "all";
   state.project = {
     handle, name:handle.name, files, currentPath:"", fromFiles:false,
     collapsed:new Set(Array.isArray(collapsedList) ? collapsedList : []),
     status
   };
+  revDirty = true;   // 刚合并过历史/索引，跟全局索引对一次账
   await persistProject();
   onProjectReady();
 
@@ -2468,7 +2501,35 @@ function statusMap(){
   if(!state.project.status || typeof state.project.status !== "object") state.project.status = {};
   return state.project.status;
 }
-function isRevised(path){ return statusMap()[path] === 1; }
+
+/* 修订状态双份记账：
+ *   1) state.project.status[相对路径] —— 当前项目的即时视图
+ *   2) 全局 revIndex[文件绝对路径]   —— 绑在文件上，换文件夹/换项目打开同一个文件也认得
+ * 只靠第 1 份时，切到别的文件夹再回来，状态会被那一次的空记录覆盖掉。 */
+let revIndex = {};        // 绝对路径 -> 1
+let revIndexLoaded = false;
+let revDirty = true;      // 有待对账的项目状态（避免每切一个文件都全量扫一遍）
+
+function normAbs(p){ return String(p || "").replace(/\\/g, "/").replace(/\/+$/, ""); }
+
+function absOf(relPath){
+  const f = (state.project.files || []).find(x => x.path === relPath);
+  const full = f && f.handle && f.handle.__native;
+  return full ? normAbs(full) : "";
+}
+
+async function ensureRevIndex(){
+  if(revIndexLoaded || !NATIVE) return revIndex;
+  try{ revIndex = (await NATIVE.getRevIndex()) || {}; }catch(e){ revIndex = {}; }
+  revIndexLoaded = true;
+  return revIndex;
+}
+
+function isRevised(path){
+  if(statusMap()[path] === 1) return true;
+  const k = absOf(path);
+  return !!(k && revIndex[k] === 1);
+}
 function statusCounts(){
   const files = state.project.files || [];
   let rev = 0;
@@ -2513,6 +2574,7 @@ async function setFileStatus(path, revised, opts){
   if(!path){ toast("还没有打开文件"); return; }
   const m = statusMap();
   if(revised) m[path] = 1; else delete m[path];
+  revDirty = true;
 
   renderFileList();
   updateStatPill();
@@ -2663,6 +2725,25 @@ async function openProjectFile(item, silent){
 async function persistProject(){
   const folded = state.project.collapsed ? Array.from(state.project.collapsed) : [];
   const status = { ...statusMap() };
+
+  // 把当前状态对账进全局修订索引（按绝对路径），这样切文件夹后回来、或者换个项目
+  // 打开同一个文件，状态都还认得。只写有变化的项。
+  if(NATIVE && revDirty){
+    await ensureRevIndex();
+    const patch = {};
+    let dirty = false;
+    for(const f of (state.project.files || [])){
+      const full = f.handle && f.handle.__native;
+      if(!full) continue;
+      const k = normAbs(full);
+      const want = status[f.path] === 1;
+      const has = revIndex[k] === 1;
+      if(want && !has){ revIndex[k] = 1; patch[k] = 1; dirty = true; }
+      else if(!want && has){ delete revIndex[k]; patch[k] = 0; dirty = true; }
+    }
+    revDirty = false;
+    if(dirty){ try{ await NATIVE.mergeRevIndex(patch); }catch(e){} }
+  }
 
   if(!state.project.handle){
     // 纯浏览器（webkitdirectory，无句柄）没法写回磁盘，状态按项目名存 localStorage

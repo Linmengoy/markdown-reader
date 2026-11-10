@@ -1,7 +1,7 @@
 {
   "name": "novel-reader",
   "productName": "Markdown小说阅读器",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Markdown 小说阅读器",
   "main": "main.js",
   "author": "local",
