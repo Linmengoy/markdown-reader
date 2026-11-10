@@ -16,6 +16,8 @@ dist_*/
 
 # ---- 测试截图（本地自检用，不进仓库）----
 .build/preview-*.png
+.build/logo-shot.png
+.build/pkg-*.png
 .build/o*.txt
 
 # ---- 一次性调试脚本 ----

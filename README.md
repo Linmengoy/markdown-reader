@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="104" alt="Markdown 小说阅读器"></p>
+
 # Markdown 小说阅读器
 
 一个用来读、也用来写**中文长篇小说**的 Markdown 阅读器。

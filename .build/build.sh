@@ -13,8 +13,8 @@ EXE_NAME="Markdown小说阅读器.exe"
 echo "==> 同步前端页面"
 cp "$ROOT/markdown-novel-reader.html" app/
 
-echo "==> 生成图标"
-node make-icon.js
+echo "==> 生成图标（从 assets/logo.jpg）"
+env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS ./node_modules/.bin/electron make-icon.js
 
 echo "==> 第一步：打包目录版"
 node_modules/.bin/electron-builder --win --x64 --dir 2>&1 | grep -Ev "^\s*$" | tail -4
