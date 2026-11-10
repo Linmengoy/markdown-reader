@@ -320,6 +320,8 @@ function createWindow(){
               .replace(/__TESTDIR__/g, JSON.stringify(testDir));
             const r = await win.webContents.executeJavaScript(code);
             console.log("SMOKE_SCRIPT " + JSON.stringify(r));
+            // 便携版没有终端，console 看不到：同时落一份到 userData，方便打包后核对
+            try { fss.writeFileSync(path.join(userDir(), "smoke-script.txt"), String(r), "utf8"); } catch (e) {}
             // 自检辅助：把系统剪贴板内容落一份文件，便于验证「复制」类功能
             if (process.env.MDNR_CLIP === "1"){
               try { fss.writeFileSync(path.join(userDir(), "clip.txt"), clipboard.readText(), "utf8"); } catch (e) {}
@@ -371,6 +373,7 @@ function createWindow(){
           console.log("SMOKE_SHOT " + shot);
         } catch (e) {
           console.log("SMOKE_FAIL " + e.message);
+          try { fss.writeFileSync(path.join(userDir(), "smoke-error.txt"), String((e && e.stack) || e), "utf8"); } catch (e2) {}
         }
         allowClose = true;
         app.quit();

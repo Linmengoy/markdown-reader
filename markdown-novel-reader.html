@@ -297,18 +297,52 @@ body.mode-edit .main{overflow:hidden}
   100%{background:color-mix(in srgb,var(--accent) 15%,transparent);box-shadow:0 1px 6px color-mix(in srgb,var(--accent) 18%,transparent)}
 }
 
+/* ---------- 段落号 ---------- */
+.pn-host{position:relative}
+body.parano .prose .pn-host[data-pn]::after{
+  content:attr(data-pn);
+  position:absolute;right:calc(100% + 10px);top:.5em;
+  min-width:1.5em;text-align:right;
+  font-family:var(--ui);font-size:.62em;font-weight:700;line-height:1.5;
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+  color:color-mix(in srgb,var(--fg) 62%,var(--bg));
+  user-select:none;pointer-events:none;
+}
+body.parano .prose .pn-host[data-pn].pn-off::after{display:none}
+/* 开了段号，字数标让出位置，两列并排不打架 */
+body.parano .prose .wm{right:calc(100% + 44px)}
+/* 编辑预览栏本来就窄，给段号留出一条沟 */
+body.parano #preview{padding-left:36px}
+
 /* ---------- editor ---------- */
 #editorWrap{display:none;height:100%}
 body.mode-edit #editorWrap{display:flex}
 body.mode-edit #reader,body.mode-edit #welcome{display:none}
+/* 源码全屏：只留源码栏 */
+body.mode-source .pane.pv{display:none}
+body.mode-source .pane.src{border-right:0}
 .pane{flex:1;min-width:0;overflow-y:auto;position:relative;height:100%}
 .pane.src{border-right:1px solid var(--border)}
 #editor{
   width:100%;height:calc(100% - 30px);border:0;outline:0;resize:none;
-  background:transparent;padding:14px 26px 40vh;display:block;
+  background:transparent;padding:14px 26px 40vh 58px;display:block;
   font-family:var(--font);font-size:calc(var(--fs)*.92);line-height:1.85;letter-spacing:.01em;
   color:var(--fg);tab-size:2;white-space:pre-wrap;
 }
+/* 源码行号：固定贴左，内部随 textarea 的 scrollTop 平移 */
+#edGutter{
+  position:absolute;left:0;top:30px;bottom:0;width:58px;
+  overflow:hidden;pointer-events:none;z-index:2;
+}
+#edGutterIn{position:absolute;left:0;top:0;right:0;will-change:transform}
+#edGutter .ln{
+  position:absolute;right:9px;
+  font-family:var(--ui);font-variant-numeric:tabular-nums;
+  color:color-mix(in srgb,var(--fg) 34%,var(--bg));
+  text-align:right;white-space:nowrap;user-select:none;
+  transform:translateY(2px);   /* 数字比正文汉字视觉重心略高，压下来对齐 */
+}
+#edGutter .ln.cur{color:color-mix(in srgb,var(--accent) 82%,var(--bg))}
 #preview{padding:16px 26px 40vh}
 .pane-label{
   position:sticky;top:0;z-index:3;height:30px;box-sizing:border-box;
@@ -596,6 +630,7 @@ body.skin-on .prose{
     <div class="seg">
       <button id="btnRead" class="on">阅读</button>
       <button id="btnEdit">编辑</button>
+      <button id="btnSrc" title="源码全屏，只看源码 (Ctrl+Shift+E)">源码</button>
     </div>
     <div class="sep hide-sm"></div>
     <button class="btn ghost" id="btnFind" title="查找替换 Ctrl+F">查找替换</button>
@@ -650,6 +685,7 @@ body.skin-on .prose{
         <div class="pane src">
           <div class="pane-label">Markdown 源码</div>
           <textarea id="editor" spellcheck="false" placeholder="在这里输入或粘贴 Markdown 小说内容……"></textarea>
+          <div id="edGutter" aria-hidden="true"><div id="edGutterIn"></div></div>
         </div>
         <div class="pane pv">
           <div class="pane-label">预览</div>
@@ -669,6 +705,7 @@ body.skin-on .prose{
             <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> 打开文件夹 &nbsp;·&nbsp;
             <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存 &nbsp;·&nbsp;
             <kbd>Ctrl</kbd>+<kbd>E</kbd> 编辑 &nbsp;·&nbsp;
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> 源码全屏 &nbsp;·&nbsp;
             <kbd>Ctrl</kbd>+<kbd>F</kbd> 查找
           </div>
         </div>
@@ -790,10 +827,12 @@ body.skin-on .prose{
 
         <section>
           <h4>阅读</h4>
+          <label class="chk"><input type="checkbox" id="optParaNo"> 显示段落号（挂在每段左侧）</label>
+          <label class="chk"><input type="checkbox" id="optGutter" checked> 源码显示行号</label>
           <label class="chk"><input type="checkbox" id="optSoftbreak" checked> 保留单行换行（小说友好）</label>
           <label class="chk"><input type="checkbox" id="optChap" checked> 优雅排版章节标题</label>
           <label class="chk"><input type="checkbox" id="optSel" checked> 选中文字时显示字数与「复制」按钮</label>
-          <div class="hint">会自动识别「第一章 / 第 3 节 / 楔子 / 尾声 / Chapter 1」等标题，并加入目录。</div>
+          <div class="hint">段落号按正文顺序给每个段落编号（列表项、表格、引用块内部不单独编号），阅读区和编辑预览都会显示，方便对稿时互相指认「第几段」。</div>
         </section>
 
         <section>
@@ -803,6 +842,7 @@ body.skin-on .prose{
             <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span><span>打开文件</span>
             <span><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span>保存</span>
             <span><kbd>Ctrl</kbd>+<kbd>E</kbd></span><span>阅读 / 编辑</span>
+            <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></span><span>源码全屏</span>
             <span><kbd>Ctrl</kbd>+<kbd>F</kbd></span><span>查找替换</span>
             <span><kbd>Ctrl</kbd>+<kbd>B</kbd></span><span>显示 / 隐藏侧栏</span>
             <span><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></span><span>调字号</span>
@@ -1218,6 +1258,7 @@ const DEFAULT_SETTINGS = {
   fs:19, lh:1.9, ls:0.02, gap:0.9, w:720,
   font:"sans", indent:false, softbreak:true, chapStyle:true,
   wmStep:2000, selCount:true,
+  mode:"edit", parano:false, gutter:true,
   bg:{enabled:false, skinId:"", fit:"cover", opacity:100, blur:0, dim:45, paper:60},
   skins:[]
 };
@@ -1227,7 +1268,7 @@ const state = {
   fileName:"",
   handle:null,
   dirty:false,
-  mode:"read",
+  mode:"edit",
   headings:[],
   matches:[],
   matchIndex:-1,
@@ -1343,6 +1384,9 @@ function applyTypography(){
   requestAnimationFrame(() => {
     layoutWmBadges($("#reader"));
     layoutWmBadges($("#preview"));
+    layoutParaNo($("#reader"));
+    layoutParaNo($("#preview"));
+    scheduleGutter();
   });
 }
 
@@ -1422,11 +1466,64 @@ function markWords(host){
   return count;
 }
 
+/* ---------- 段落号：给正文每个段落编号，挂在段落左外侧 ---------- */
+const PNO_BLOCK = "p, blockquote";
+
+function numberParagraphs(host){
+  if(!host) return 0;
+  // 重渲染时属性会一起消失；这里兜底清一次，保证编号连续
+  host.querySelectorAll(".pn-host").forEach(el => {
+    el.classList.remove("pn-host", "pn-off");
+    el.removeAttribute("data-pn");
+  });
+  if(!settings.parano) return 0;
+
+  let n = 0;
+  const list = host.querySelectorAll(PNO_BLOCK);
+  for(let i = 0; i < list.length; i++){
+    const el = list[i];
+    if(el.closest("li, td, th")) continue;                        // 列表项/表格格不算独立段落
+    if(el.parentElement && el.parentElement.closest("blockquote")) continue;  // 引用块内的段落由引用块代表
+    el.dataset.pn = ++n;
+    el.classList.add("pn-host");
+  }
+  layoutParaNo(host);
+  return n;
+}
+
+/* 左侧空位不够（窄栏）时把段号藏起来，避免压到正文上 */
+function layoutParaNo(host){
+  if(!host || !host.offsetParent) return;
+  const scroller = host.closest(".pane") || host.closest("#main") || host;
+  const base = scroller.getBoundingClientRect ? scroller.getBoundingClientRect().left : 0;
+  const list = host.querySelectorAll(".pn-host[data-pn]");
+  for(let i = 0; i < list.length; i++){
+    const el = list[i];
+    const left = el.getBoundingClientRect().left - base;
+    el.classList.toggle("pn-off", left < 26);
+  }
+}
+
+function applyParaNo(){
+  document.body.classList.toggle("parano", !!settings.parano);
+  // 开关变化后要重新编号（关掉时清掉属性，打开时补上）
+  numberParagraphs($("#reader"));
+  numberParagraphs($("#preview"));
+  requestAnimationFrame(() => {
+    layoutParaNo($("#reader"));
+    layoutParaNo($("#preview"));
+    layoutWmBadges($("#reader"));
+    layoutWmBadges($("#preview"));
+  });
+}
+
 /* 决定每个标记是挂在段落左侧的空白处，还是退回段末内联（窄栏放不下时） */
 function layoutWmBadges(host){
   if(!host || !host.offsetParent) return;   // 当前不可见（另一个模式），切过去时会重算
   const scroller = host.closest(".pane") || host.closest("#main") || host;
   const base = scroller.getBoundingClientRect ? scroller.getBoundingClientRect().left : 0;
+  // 开了段落号，字数标要再往左让一列，需要更多空位
+  const need = settings.parano ? 92 : 86;
   const list = host.querySelectorAll(".wm");
   for(let i = 0; i < list.length; i++){
     const w = list[i];
@@ -1435,7 +1532,7 @@ function layoutWmBadges(host){
     // 表格单元格紧挨着相邻列，左侧没有空位可用，直接退回内联
     if(blk.matches("td, th")){ w.classList.add("flat"); continue; }
     const left = blk.getBoundingClientRect().left - base;
-    w.classList.toggle("flat", left < 86);
+    w.classList.toggle("flat", left < need);
   }
 }
 
@@ -1620,23 +1717,23 @@ function jumpToMark(n, btn, sync){
     state.lastJumpAt = Date.now();
   }
 
-  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  const host = state.mode === "read" ? $("#reader") : $("#preview");
   if(!host) return;
   const mark = host.querySelector('.wm[data-n="'+n+'"]');
   if(!mark) return;
 
   const line = mark.closest(WM_BLOCK) || mark;
-  const scroller = state.mode === "edit" ? host.closest(".pane") : $("#main");
+  const scroller = state.mode === "read" ? $("#main") : host.closest(".pane");
   if(!scroller) return;
 
-  const pad = state.mode === "edit" ? 14 : 20;
+  const pad = state.mode === "read" ? 20 : 14;
   const base = scroller.getBoundingClientRect().top;
   const box = line.getBoundingClientRect();
   // 标挂在段首左侧，跳到段首即可看见它
   scrollToPos(scroller, scroller.scrollTop + box.top - base - pad);
 
   // 编辑模式下，左侧 Markdown 源码同步定位到同一处（段的开头，而不是段末的字数）
-  if(state.mode === "edit") scrollEditorToChar(Math.max(1, n - Math.max(0, blockCharCount(line) - 1)));
+  if(state.mode !== "read") scrollEditorToChar(Math.max(1, n - Math.max(0, blockCharCount(line) - 1)));
 
   // 闪烁提示，让眼睛立刻找到位置
   mark.classList.remove("flash");
@@ -1660,15 +1757,18 @@ function renderAll(){
 
   const reader = $("#reader");
   reader.innerHTML = res.html;
+  numberParagraphs(reader);
   state.charCount = markWords(reader);
 
   const preview = $("#preview");
   preview.innerHTML = res.html;
+  numberParagraphs(preview);
   markWords(preview);
 
   buildToc();
   buildWmNav();
   updateStats();
+  scheduleGutter();
 }
 
 function buildToc(){
@@ -1713,10 +1813,20 @@ function scrollToPos(scroller, top){
 }
 
 function jumpTo(btn){
-  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  // 源码全屏时没有预览，直接在源码里定位到同一章标题
+  if(state.mode === "source"){
+    const h = state.headings[+btn.dataset.idx];
+    const ed = $("#editor");
+    if(h && h.text && ed && state.content){
+      const at = state.content.indexOf(h.text);
+      if(at >= 0) scrollToPos(ed, Math.max(0, editorContentTop(ed, at) - 12));
+    }
+    return;
+  }
+  const host = state.mode === "read" ? $("#reader") : $("#preview");
   const el = host.querySelector("#" + btn.dataset.id);
   if(!el) return;
-  if(state.mode === "edit"){
+  if(state.mode !== "read"){
     const pane = host.closest(".pane");
     if(pane) scrollToPos(pane,
       pane.scrollTop + el.getBoundingClientRect().top - pane.getBoundingClientRect().top - 18);
@@ -1736,7 +1846,7 @@ function updateStats(){
   const lines = state.content ? state.content.split("\n").length : 0;
   $("#stChars").textContent = fmt(state.charCount) + " 字";
   $("#stLines").textContent = fmt(lines) + " 行";
-  $("#stMode").textContent = state.mode === "edit" ? "编辑模式" : "阅读模式";
+  $("#stMode").textContent = state.mode === "read" ? "阅读模式" : (state.mode === "source" ? "源码模式" : "编辑模式");
   $("#fileName").textContent = state.fileName || "未打开文件";
   $("#dirtyDot").classList.toggle("on", state.dirty);
   $("#stSave").textContent = state.handle
@@ -1771,7 +1881,7 @@ function updateProgress(){
 
   // 同步高亮当前所在的字数段
   const els = state.wmEls;
-  if(els && els.length && state.mode !== "edit"){
+  if(els && els.length && state.mode === "read"){
     const wmOrigin = main.getBoundingClientRect().top + 56;
     let cur = null;
     for(let i = 0; i < els.length; i++){
@@ -1826,7 +1936,7 @@ function hideSelPop(){
 
 function onSelectionChange(){
   const editor = $("#editor");
-  const inEditor = state.mode === "edit" && document.activeElement === editor;
+  const inEditor = state.mode !== "read" && document.activeElement === editor;
   const ed = editor;
 
   // 编辑态：textarea 选区 → 状态栏 + 鼠标旁浮标（可复制）
@@ -1852,7 +1962,7 @@ function onSelectionChange(){
   if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
 
   const range = sel.getRangeAt(0);
-  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  const host = state.mode === "read" ? $("#reader") : $("#preview");
   if(!host || !host.contains(range.commonAncestorContainer)){ hideSelPop(); return; }
 
   const raw = sel.toString();
@@ -1996,9 +2106,11 @@ function loadContent(text, name, handle){
   $("#editor").value = state.content;
   renderAll();
   $("#main").scrollTop = 0;
+  $("#preview").parentElement.scrollTop = 0;
   updateStats();
   updateProgress();
-  setMode(state.content ? "read" : "edit");
+  // 模式沿用上一个文件（默认编辑），换文件不重置
+  setMode(state.mode);
   document.title = (name ? name + " — " : "") + "Markdown 小说阅读器";
   saveDraft();
 }
@@ -2623,7 +2735,7 @@ async function copySelection(){
   if(!text.trim()){
     const sel = window.getSelection();
     const edEl = $("#editor");
-    if(state.mode === "edit" && document.activeElement === edEl && edEl.selectionStart !== edEl.selectionEnd){
+    if(state.mode !== "read" && document.activeElement === edEl && edEl.selectionStart !== edEl.selectionEnd){
       text = edEl.value.slice(edEl.selectionStart, edEl.selectionEnd);
     }else if(sel && !sel.isCollapsed){
       text = sel.toString();
@@ -2743,25 +2855,43 @@ function download(){
 }
 
 /* =====================================================================
-   9. 模式切换
+   9. 模式切换（read 阅读 / edit 左右栏 / source 源码全屏）
    ===================================================================== */
 function setMode(mode){
-  const wasEdit = state.mode === "edit";
+  if(mode !== "read" && mode !== "edit" && mode !== "source") mode = "edit";
+  const wasEdit = state.mode !== "read";
   const main = $("#main");
   const ratio = main.scrollHeight > main.clientHeight
     ? main.scrollTop / (main.scrollHeight - main.clientHeight) : 0;
 
   state.mode = mode;
-  document.body.classList.toggle("mode-edit", mode === "edit");
-  document.body.classList.toggle("mode-read", mode !== "edit");
-  $("#btnRead").classList.toggle("on", mode !== "edit");
+  if(settings.mode !== mode){ settings.mode = mode; saveSettings(); }   // 记住，下次打开文件/重启程序沿用
+  document.body.classList.toggle("mode-edit", mode !== "read");
+  document.body.classList.toggle("mode-read", mode === "read");
+  document.body.classList.toggle("mode-source", mode === "source");
+  $("#btnRead").classList.toggle("on", mode === "read");
   $("#btnEdit").classList.toggle("on", mode === "edit");
+  $("#btnSrc").classList.toggle("on", mode === "source");
   hideSelPop();
 
-  // 两种模式正文宽度不同，标记挂左侧还是退回段末需要重算
-  layoutWmBadges(mode === "edit" ? $("#preview") : $("#reader"));
+  // 源码全屏时顺手把左侧文件树收起来，退出时再按原样还回去
+  const sb = $("#sidebar");
+  if(mode === "source"){
+    if(sb && !sb.classList.contains("collapsed")){
+      state.sidebarWasOpen = true;
+      sb.classList.add("collapsed");
+    }
+  }else if(state.sidebarWasOpen){
+    if(sb) sb.classList.remove("collapsed");
+    state.sidebarWasOpen = false;
+  }
 
-  if(mode === "edit"){
+  // 两种模式正文宽度不同，标记挂左侧还是退回段末需要重算
+  const host = mode === "read" ? $("#reader") : $("#preview");
+  layoutWmBadges(host);
+  layoutParaNo(host);
+
+  if(mode !== "read"){
     const ed = $("#editor");
     if(ed.value !== state.content) ed.value = state.content;
     // 刚点过字数标记就切过来：直接落到同一处，而不是按滚动比例估算
@@ -2774,12 +2904,15 @@ function setMode(mode){
         const max = ed.scrollHeight - ed.clientHeight;
         if(max > 0) ed.scrollTop = Math.max(0, ratio * max);
       }
+      layoutGutter();
+      syncGutterScroll();
     }, 40);
   }else if(wasEdit){
     // 从源码切回阅读：同样回到同一处
     const jumpN = state.lastJumpN || 0;
     if(jumpN) setTimeout(() => { jumpToMark(jumpN, null, true); }, 40);
   }
+  layoutGutter();          // 阅读模式下会把行号清掉，回来再重建
   updateStats();
 }
 
@@ -2794,19 +2927,127 @@ function onEditorInput(){
     state.headings = res.headings;
     const preview = $("#preview");
     preview.innerHTML = res.html;
+    numberParagraphs(preview);
     markWords(preview);
     const reader = $("#reader");
     reader.innerHTML = res.html;
+    numberParagraphs(reader);
     state.charCount = markWords(reader);
     buildToc();
     buildWmNav();
     updateStats();
+    scheduleGutter();
     saveDraft();
   }, 200);
   saveDraft();
 }
 
 $("#editor").addEventListener("input", onEditorInput);
+
+/* =====================================================================
+   9.5 源码行号（textarea 没有行号，用一个与它同排版的镜像量出每行位置）
+   ===================================================================== */
+function editorGutterMirror(ed){
+  let m = ed._gmirror;
+  if(!m){
+    m = document.createElement("div");
+    m.setAttribute("aria-hidden", "true");
+    m.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;"
+      + "box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;";
+    document.body.appendChild(m);
+    ed._gmirror = m;
+  }
+  const cs = getComputedStyle(ed);
+  m.style.width = ed.clientWidth + "px";
+  m.style.fontFamily = cs.fontFamily;
+  m.style.fontSize = cs.fontSize;
+  m.style.fontWeight = cs.fontWeight;
+  m.style.fontStyle = cs.fontStyle;
+  m.style.lineHeight = cs.lineHeight;
+  m.style.letterSpacing = cs.letterSpacing;
+  m.style.padding = cs.padding;
+  m.style.tabSize = cs.tabSize || "2";
+  return m;
+}
+
+let gutterTimer = null;
+function scheduleGutter(){ 
+  clearTimeout(gutterTimer);
+  gutterTimer = setTimeout(layoutGutter, 90);
+}
+
+function layoutGutter(){
+  const ed = $("#editor"), inner = $("#edGutterIn");
+  if(!ed || !inner) return;
+
+  if(!settings.gutter || state.mode === "read" || !$("#editorWrap").offsetParent){
+    inner.innerHTML = "";
+    return;
+  }
+
+  const cs = getComputedStyle(ed);
+  const m = editorGutterMirror(ed);
+
+  // 每行一个块，块高就代表这一行折成几行 —— 行号只标逻辑行，折行处留白
+  const frag = document.createDocumentFragment();
+  const raw = ed.value.split("\n");
+  for(let i = 0; i < raw.length; i++){
+    const d = document.createElement("div");
+    d.textContent = raw[i] === "" ? "\u200b" : raw[i];
+    frag.appendChild(d);
+  }
+  m.innerHTML = "";
+  m.appendChild(frag);
+
+  const padTop = parseFloat(cs.paddingTop) || 0;
+  const lh = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.85);
+  const nodes = m.children;
+  // 行数特别多时，每 5 行标一个，避免一次塞几千个节点
+  const step = nodes.length > 4000 ? 5 : 1;
+
+  const out = document.createDocumentFragment();
+  for(let i = 0; i < nodes.length; i += step){
+    const node = nodes[i];
+    if(!node) continue;
+    const d = document.createElement("div");
+    d.className = "ln";
+    d.dataset.line = String(i + 1);
+    d.textContent = String(i + 1);
+    d.style.top = (node.offsetTop - padTop) + "px";
+    d.style.height = lh + "px";
+    d.style.lineHeight = lh + "px";
+    d.style.fontSize = Math.max(9, Math.round(parseFloat(cs.fontSize) * 0.62)) + "px";
+    out.appendChild(d);
+  }
+  inner.innerHTML = "";
+  inner.appendChild(out);
+  inner.style.height = Math.max(0, m.scrollHeight - padTop) + "px";
+  syncGutterScroll();
+}
+
+/* 跟着 textarea 滚：行号层整体上移，首行不会被裁掉 */
+function syncGutterScroll(){
+  const ed = $("#editor"), inner = $("#edGutterIn");
+  if(!ed || !inner) return;
+  inner.style.transform = "translateY(" + (-ed.scrollTop) + "px)";
+  highlightGutterLine();
+}
+
+/* 光标所在行高亮一下，长文里好找 */
+function highlightGutterLine(){
+  const ed = $("#editor"), inner = $("#edGutterIn");
+  if(!ed || !inner) return;
+  const all = inner.querySelectorAll(".ln");
+  if(!all.length) return;
+  const pos = ed.selectionStart || 0;
+  let line = 1;
+  for(let i = 0; i < pos; i++){
+    if(ed.value.charCodeAt(i) === 10) line++;
+  }
+  all.forEach(el => el.classList.toggle("cur", el.dataset.line === String(line)));
+}
+
+$("#editor").addEventListener("scroll", syncGutterScroll, { passive: true });
 
 /* 窗口宽度变化后，重新决定标记的位置形态 */
 let wmLayoutTimer = null;
@@ -2815,6 +3056,9 @@ window.addEventListener("resize", () => {
   wmLayoutTimer = setTimeout(() => {
     layoutWmBadges($("#reader"));
     layoutWmBadges($("#preview"));
+    layoutParaNo($("#reader"));
+    layoutParaNo($("#preview"));
+    layoutGutter();
   }, 160);
 });
 
@@ -2924,7 +3168,7 @@ function replaceAll(){
 }
 
 function openFind(){
-  if(state.mode !== "edit") setMode("edit");
+  if(state.mode === "read") setMode("edit");
   $("#replaceBar").classList.add("show");
   const ed = $("#editor");
   if(ed.selectionStart !== ed.selectionEnd){
@@ -2982,6 +3226,8 @@ function syncControls(){
   $("#optSoftbreak").checked = settings.softbreak;
   $("#optChap").checked = settings.chapStyle;
   $("#optSel").checked = settings.selCount;
+  $("#optParaNo").checked = !!settings.parano;
+  $("#optGutter").checked = settings.gutter !== false;
   syncThemeInputs();
   markSwatch();
   syncSkinControls();
@@ -3257,9 +3503,11 @@ async function applyProfile(id){
   if(!p) return;
   const main = $("#main");
   const top = main ? main.scrollTop : 0;
+  const keepMode = state.mode;    // 套用版式不该把阅读/编辑模式也一起换掉
   settings = mergeSettings(JSON.parse(JSON.stringify(p.cfg)));
+  settings.mode = keepMode;
   if(settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
-  applyTheme(); applyTypography(); applySkin();
+  applyTheme(); applyTypography(); applySkin(); applyParaNo();
   syncControls(); rerender(); saveSettings();
   if(main) main.scrollTop = top;
   toast("已套用「" + p.name + "」");
@@ -3317,9 +3565,11 @@ function rerender(){
   state.headings = res.headings;
   const preview = $("#preview");
   preview.innerHTML = res.html;
+  numberParagraphs(preview);
   markWords(preview);
   const reader = $("#reader");
   reader.innerHTML = res.html;
+  numberParagraphs(reader);
   state.charCount = markWords(reader);
   buildToc();
   buildWmNav();
@@ -3337,6 +3587,8 @@ function bindSettings(){
   $("#optSoftbreak").addEventListener("change", e => { settings.softbreak = e.target.checked; saveSettings(); rerender(); });
   $("#optChap").addEventListener("change", e => { settings.chapStyle = e.target.checked; saveSettings(); rerender(); });
   $("#optSel").addEventListener("change", e => { settings.selCount = e.target.checked; saveSettings(); if(!e.target.checked) hideSelPop(); });
+  $("#optParaNo").addEventListener("change", e => { settings.parano = e.target.checked; applyParaNo(); saveSettings(); });
+  $("#optGutter").addEventListener("change", e => { settings.gutter = e.target.checked; layoutGutter(); saveSettings(); });
   $("#wmStep").addEventListener("change", e => { settings.wmStep = +e.target.value; saveSettings(); rerender(); toast(settings.wmStep ? "每 " + fmt(settings.wmStep) + " 字标记一次" : "已关闭字数标记"); });
 
   $("#bgColor").addEventListener("input", e => {
@@ -3409,6 +3661,7 @@ function bindUI(){
 
   $("#btnRead").addEventListener("click", () => setMode("read"));
   $("#btnEdit").addEventListener("click", () => setMode("edit"));
+  $("#btnSrc").addEventListener("click", () => setMode(state.mode === "source" ? "edit" : "source"));
 
   $$("#sbTabs button").forEach(b => {
     b.addEventListener("click", () => switchTab(b.dataset.tab));
@@ -3467,7 +3720,7 @@ function bindUI(){
   });
   document.addEventListener("mouseup", () => setTimeout(onSelectionChange, 10));
   $("#editor").addEventListener("select", onSelectionChange);
-  $("#editor").addEventListener("keyup", () => { if(state.mode === "edit") onSelectionChange(); });
+  $("#editor").addEventListener("keyup", () => { if(state.mode !== "read"){ onSelectionChange(); highlightGutterLine(); } });
   $("#editor").addEventListener("blur", () => setStatusSel(0));
   document.addEventListener("mousedown", e => {
     if(!e.target.closest("#selPop")) hideSelPop();
@@ -3533,7 +3786,8 @@ function bindUI(){
     if(ctrl && e.shiftKey && k === "o"){ e.preventDefault(); pickFolder(); }
     else if(ctrl && !e.shiftKey && k === "o"){ e.preventDefault(); openFile(); }
     else if(ctrl && (k === "s")){ e.preventDefault(); saveFile(e.shiftKey); }
-    else if(ctrl && k === "e"){ e.preventDefault(); setMode(state.mode === "edit" ? "read" : "edit"); }
+    else if(ctrl && e.shiftKey && k === "e"){ e.preventDefault(); setMode(state.mode === "source" ? "edit" : "source"); }
+    else if(ctrl && k === "e"){ e.preventDefault(); setMode(state.mode === "read" ? "edit" : "read"); }
     else if(ctrl && k === "f"){ e.preventDefault(); openFind(); }
     else if(ctrl && e.shiftKey && k === "c"){ e.preventDefault(); copyAll(); }
     else if(ctrl && e.shiftKey && k === "d"){ e.preventDefault(); toggleFileStatus(); }
@@ -3544,7 +3798,6 @@ function bindUI(){
       $("#settingsPanel").classList.remove("show");
       $("#replaceBar").classList.remove("show");
       hideSelPop();
-      if(state.mode === "edit") setMode("read");
     }
   });
 
@@ -3601,6 +3854,9 @@ async function init(){
   if(settings.bg && settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
   applyTheme();
   applyTypography();
+  // 默认落在编辑模式；如果上次退出时在阅读模式，就沿用上次的
+  setMode(settings.mode === "read" ? "read" : "edit");
+  applyParaNo();
   buildSwatches();
   syncControls();
   bindSettings();

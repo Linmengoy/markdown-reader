@@ -37,10 +37,19 @@ if [ -f "$RC" ] && [ -f "$TARGET" ]; then
 fi
 
 echo "==> 第二步：封装单文件 exe"
-node_modules/.bin/electron-builder --win portable --x64 --prepackaged "$ROOT/dist/win-unpacked" 2>&1 | tail -3
+# 关键：portable 会把程序解压到 %TEMP%\<unpackDirName>，目录已存在时直接复用、
+# 不覆盖旧文件 —— 换了版本却还跑旧代码。所以解压目录名带上版本号，升级即换新目录。
+VERSION=$(node -p "require('./package.json').version")
+UNPACK_DIR="MDNovelReader-$VERSION"
+echo "    解压目录：%TEMP%\\$UNPACK_DIR"
+# 构建机上把同名解压目录删掉，否则自测时会命中上一次解压的旧文件
+rm -rf "$LOCALAPPDATA/Temp/$UNPACK_DIR" 2>/dev/null || true
+node_modules/.bin/electron-builder --win portable --x64 \
+  --prepackaged "$ROOT/dist/win-unpacked" \
+  -c.portable.unpackDirName="$UNPACK_DIR" 2>&1 | tail -3
 
 echo "==> 复制到项目根目录"
-cp "$ROOT/dist/$EXE_NAME" "$ROOT/$EXE_NAME"
+cp "$ROOT/dist/$EXE_NAME" "$ROOT/$EXE_NAME" 2>/dev/null || echo "    (根目录 exe 正被占用，关掉程序后手动复制 dist/ 里的那份)"
 
 echo "==> 完成"
 ls -lh "$ROOT/$EXE_NAME"

@@ -34,3 +34,5 @@ dist_*/
 .DS_Store
 Thumbs.db
 .build/.o*.txt
+.build/.r_*.txt
+.build/.ud_*/
