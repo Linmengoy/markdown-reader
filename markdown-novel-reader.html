@@ -1,0 +1,3657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Markdown 小说阅读器</title>
+<style>
+:root{
+  --bg:#17181b; --fg:#c9ccd4; --muted:#7c8089; --panel:#1e2024; --panel2:#25272c;
+  --border:#2d3037; --accent:#7aa2f7; --paper:#1a1b1f;
+  --fs:19px; --lh:1.9; --ls:0.02em; --w:720px; --gap:0.9em; --indent:0em;
+  --font:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC",system-ui,sans-serif;
+  --ui:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:9px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--ui); font-size:13.5px;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+  transition:background-color .28s ease,color .28s ease;
+}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea,select{font-family:inherit;color:inherit}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+
+.app{display:flex;flex-direction:column;height:100%}
+
+/* ---------- top bar ---------- */
+.topbar{
+  flex:0 0 auto;height:50px;display:flex;align-items:center;gap:6px;padding:0 12px;
+  background:var(--panel);border-bottom:1px solid var(--border);z-index:30;position:relative;
+}
+.brand{display:flex;align-items:center;gap:8px;margin-right:8px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.brand svg{width:18px;height:18px;flex:0 0 auto;opacity:.9}
+.filechip{
+  display:flex;align-items:center;gap:7px;max-width:260px;min-width:0;
+  padding:4px 10px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);
+  font-size:12.5px;color:var(--muted);
+}
+#fileName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;color:var(--fg)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto;opacity:0;transition:opacity .2s}
+.dot.on{opacity:1}
+.spacer{flex:1}
+.btn{
+  height:30px;padding:0 11px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;
+  color:var(--fg);background:transparent;transition:background .16s,color .16s;white-space:nowrap;font-size:13px;
+}
+.btn:hover{background:var(--panel2)}
+.btn:active{transform:translateY(.5px)}
+.btn.primary{background:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+.btn.ghost{color:var(--muted)}
+.btn.ghost:hover{color:var(--fg)}
+.btn.accent{color:var(--accent)}
+.btn svg{width:15px;height:15px;flex:0 0 auto}
+.sep{width:1px;height:20px;background:var(--border);margin:0 3px}
+.seg{display:flex;background:var(--panel2);border-radius:8px;padding:2px;gap:2px}
+.seg button{height:26px;padding:0 12px;border-radius:6px;color:var(--muted);font-size:12.5px;transition:.16s}
+.seg button.on{background:var(--bg);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+
+/* progress line */
+.progress{height:2px;background:transparent;flex:0 0 auto;position:relative;z-index:29}
+.progress i{display:block;height:100%;width:0;background:var(--accent);opacity:.75;transition:width .12s linear}
+
+/* ---------- body ---------- */
+.body{flex:1;display:flex;min-height:0;position:relative}
+
+/* sidebar */
+.sidebar{
+  flex:0 0 252px;width:252px;border-right:1px solid var(--border);background:var(--panel);
+  display:flex;flex-direction:column;min-height:0;transition:margin-left .22s ease;
+}
+.sidebar.collapsed{margin-left:-252px}
+.sb-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;
+  border-bottom:1px solid var(--border);
+}
+.sb-tabs{display:flex;gap:2px;background:var(--panel2);border-radius:7px;padding:2px}
+.sb-tabs button{height:22px;padding:0 10px;border-radius:5px;font-size:11.5px;color:var(--muted);transition:.14s}
+.sb-tabs button.on{background:var(--bg);color:var(--fg)}
+.sb-tabs.hide{display:none}
+.sb-project{
+  display:flex;align-items:center;gap:6px;padding:9px 14px 7px;font-size:11px;
+  color:var(--muted);letter-spacing:.04em;
+}
+.sb-project b{
+  color:var(--fg);font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;letter-spacing:0;
+}
+.sb-pane{flex:1;min-height:0;display:flex;flex-direction:column}
+.sb-pane.hide{display:none}
+.pane-hint{padding:2px 14px 6px;font-size:10.5px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+.sb-scroll{flex:1;min-height:0;overflow-y:auto;padding:2px 8px 24px}
+.toc,.file-list{padding:0}
+.file-list{flex:1;overflow-y:auto;padding:2px 8px 24px}
+.toc-empty{padding:14px 10px;color:var(--muted);font-size:12.5px;line-height:1.8}
+.toc-item{
+  display:block;width:100%;text-align:left;padding:6px 10px;border-radius:7px;font-size:13px;
+  color:var(--muted);line-height:1.45;border-left:2px solid transparent;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;transition:.14s;margin-bottom:1px;
+}
+.toc-item:hover{background:var(--panel2);color:var(--fg)}
+.toc-item.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent);font-weight:600}
+.toc-item.lv1{padding-left:10px;font-weight:600;color:var(--fg)}
+.toc-item.lv2{padding-left:20px}
+.toc-item.lv3{padding-left:32px;font-size:12.5px}
+
+/* 字数标记导航（固定在侧栏底部，文件/目录两个标签下都能用） */
+.wm-sec{
+  flex:0 0 auto;max-height:34vh;overflow-y:auto;
+  padding:0 8px 12px;border-top:1px solid var(--border);
+}
+.wm-sec-hd{
+  position:sticky;top:0;z-index:2;background:var(--panel);
+  display:flex;align-items:center;justify-content:space-between;padding:9px 10px 7px;
+  font-size:10.5px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;opacity:.8;
+}
+.wm-sec-hd b{font-weight:600;letter-spacing:0;opacity:.85}
+.wm-item{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  padding:6px 9px;border-radius:7px;font-size:12.5px;color:var(--muted);
+  transition:.14s;margin-bottom:2px;border-left:2px solid transparent;overflow:hidden;
+}
+.wm-item:hover{background:var(--panel2);color:var(--fg)}
+.wm-item.active{background:color-mix(in srgb,var(--accent) 13%,var(--panel2));color:var(--accent);border-left-color:var(--accent)}
+.wm-item .wm-bar{width:3px;height:12px;border-radius:2px;background:currentColor;opacity:.42;flex:0 0 auto}
+.wm-item.active .wm-bar{opacity:1}
+.wm-item .wm-num{
+  font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto;
+  font-size:12px;letter-spacing:.01em;
+}
+.wm-item .wm-snip{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11.5px;opacity:.72;
+}
+.wm-item.active .wm-snip{opacity:.9}
+
+/* 项目文件树：文件夹可折叠，文件按层级缩进 */
+.dir-item{
+  display:flex;align-items:center;gap:5px;width:100%;text-align:left;
+  padding:5px 9px;border-radius:7px;font-size:12.5px;color:var(--muted);
+  transition:.14s;margin-bottom:1px;overflow:hidden;border-left:2px solid transparent;
+}
+.dir-item:hover{background:var(--panel2);color:var(--fg)}
+.dir-item .farrow{
+  width:9px;height:9px;flex:0 0 auto;opacity:.5;transition:transform .16s;
+}
+.dir-item.open .farrow{transform:rotate(90deg)}
+.dir-item .dname{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:500;letter-spacing:.01em;
+}
+.dir-item .dcount{
+  flex:0 0 auto;font-size:10px;opacity:.42;font-variant-numeric:tabular-nums;
+  padding-left:4px;
+}
+.dir-item.has-active .dname{color:var(--accent)}
+.dir-item.has-active .farrow{opacity:.9;color:var(--accent)}
+.file-item{
+  display:flex;align-items:center;gap:6px;width:100%;text-align:left;padding:5px 8px 5px 10px;border-radius:7px;
+  font-size:12.5px;color:var(--muted);line-height:1.45;overflow:hidden;transition:.14s;
+  margin-bottom:1px;border-left:2px solid transparent;
+}
+.file-item:hover{background:var(--panel2);color:var(--fg)}
+.file-item.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent);font-weight:600}
+.file-item .fname{flex:1;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-filter{
+  margin:0 14px 6px;height:26px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg);padding:0 8px;font-size:12px;outline:0;
+}
+.file-filter:focus{border-color:var(--accent)}
+
+/* 草稿 / 已修订 状态标 */
+:root{ --ok: color-mix(in srgb, #35a45a 72%, var(--fg)); }
+.fstat{
+  flex:0 0 auto;font-size:9.5px;line-height:1;font-weight:600;letter-spacing:.02em;
+  padding:3px 5px;border-radius:4px;border:1px solid transparent;white-space:nowrap;
+  color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);
+  transition:.14s;cursor:pointer;
+}
+.fstat.rev{
+  color:var(--ok);background:color-mix(in srgb,#35a45a 16%,transparent);
+  border-color:color-mix(in srgb,#35a45a 34%,transparent);
+}
+.fstat:hover{filter:brightness(1.18);border-color:currentColor}
+.statbar{display:flex;gap:4px;padding:0 14px 8px;flex-wrap:wrap}
+.statbar button{
+  height:22px;padding:0 8px;border-radius:6px;font-size:11px;color:var(--muted);
+  background:var(--panel2);border:1px solid transparent;display:inline-flex;align-items:center;gap:4px;transition:.14s;
+}
+.statbar button b{font-weight:600;opacity:.72;font-variant-numeric:tabular-nums}
+.statbar button:hover{color:var(--fg)}
+.statbar button.on{
+  color:var(--fg);background:var(--bg);border-color:var(--border);
+  box-shadow:0 1px 3px rgba(0,0,0,.16);
+}
+.statbar button[data-st="revised"].on{color:var(--ok)}
+.statbar.hide{display:none}
+
+/* 顶栏的当前文件状态 */
+.statpill{
+  flex:0 0 auto;height:21px;padding:0 7px;border-radius:20px;font-size:10.5px;font-weight:600;
+  letter-spacing:.02em;color:var(--muted);background:color-mix(in srgb,var(--muted) 13%,transparent);
+  border:1px solid transparent;transition:.14s;white-space:nowrap;
+}
+.statpill:hover{border-color:currentColor}
+.statpill.rev{
+  color:var(--ok);background:color-mix(in srgb,#35a45a 16%,transparent);
+  border-color:color-mix(in srgb,#35a45a 34%,transparent);
+}
+.statpill.hide{display:none}
+
+/* main */
+.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;position:relative;scroll-behavior:smooth}
+body.mode-edit .main{overflow:hidden}
+
+/* ---------- reader / prose ---------- */
+.prose{
+  max-width:var(--w);margin:0 auto;padding:46px 30px 42vh;
+  font-family:var(--font);font-size:var(--fs);line-height:var(--lh);letter-spacing:var(--ls);
+  color:var(--fg);overflow-wrap:break-word;
+}
+.prose>:first-child{margin-top:0}
+.prose p{margin:0 0 var(--gap);text-indent:var(--indent)}
+.prose h1,.prose h2,.prose h3,.prose h4,.prose h5,.prose h6{line-height:1.45;font-weight:600;margin:1.9em 0 .75em;letter-spacing:.01em}
+.prose h1{font-size:1.62em}
+.prose h2{font-size:1.34em}
+.prose h3{font-size:1.15em}
+.prose h4,.prose h5,.prose h6{font-size:1.02em;color:var(--muted)}
+.prose h1.chap,.prose h2.chap{
+  text-align:center;font-size:1.3em;font-weight:600;margin:2.5em 0 1.5em;letter-spacing:.08em;
+}
+.prose h1.chap:first-child,.prose h2.chap:first-child{margin-top:.6em}
+.prose h1.chap::after,.prose h2.chap::after{
+  content:"";display:block;width:38px;height:2px;background:var(--accent);opacity:.5;
+  margin:.75em auto 0;border-radius:2px;
+}
+.prose a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+.prose a:hover{border-bottom-color:var(--accent)}
+.prose strong{font-weight:600;color:var(--fg)}
+.prose del{opacity:.6}
+.prose blockquote{
+  margin:1.4em 0;padding:.3em 0 .3em 1.1em;border-left:3px solid var(--accent);
+  color:var(--muted);opacity:.95;
+}
+.prose blockquote p{margin:.4em 0}
+.prose hr{border:0;height:1em;margin:2.2em 0;text-align:center;color:var(--muted);overflow:visible}
+.prose hr::before{content:"· · ·";letter-spacing:.55em;font-size:1.05em}
+.prose img{max-width:100%;height:auto;border-radius:6px;display:block;margin:1.4em auto}
+.prose code{
+  font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.86em;
+  background:var(--panel2);padding:.15em .4em;border-radius:4px;
+}
+.prose pre{
+  background:var(--panel2);padding:14px 16px;border-radius:var(--r);overflow-x:auto;
+  margin:1.4em 0;line-height:1.6;border:1px solid var(--border);
+}
+.prose pre code{background:none;padding:0;font-size:.82em}
+.prose ul,.prose ol{margin:.7em 0 1em;padding-left:1.6em}
+.prose li{margin:.28em 0}
+.prose li>ul,.prose li>ol{margin:.3em 0}
+.prose .table-wrap{overflow-x:auto;margin:1.4em 0}
+.prose table{border-collapse:collapse;width:100%;font-size:.9em}
+.prose th,.prose td{border:1px solid var(--border);padding:.5em .75em;text-align:left}
+.prose th{background:var(--panel2);font-weight:600}
+
+/* 字数标记：像批注一样挂在段落左侧空白处，标的是这一整段 */
+.wm{
+  position:absolute;right:calc(100% + 20px);top:.3em;
+  font-family:var(--ui);font-size:.62em;font-weight:700;line-height:1.5;
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  border-radius:20px;padding:.04em .5em;
+  letter-spacing:.02em;user-select:none;white-space:nowrap;
+  box-shadow:0 1px 6px color-mix(in srgb,var(--accent) 18%,transparent);
+  transition:background .15s,box-shadow .15s;cursor:pointer;
+}
+.wm:hover{background:color-mix(in srgb,var(--accent) 26%,transparent);box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 30%,transparent)}
+/* 被标记的段落：定位上下文 + 左侧一道细线，表明标覆盖到整段 */
+.wm-host{position:relative}
+.wm-host.wm-mark::before{
+  content:"";position:absolute;left:-7px;top:.12em;bottom:.12em;width:3px;border-radius:3px;
+  background:color-mix(in srgb,var(--accent) 55%,transparent);
+}
+/* 左边空位不够时（编辑模式窄栏）退回段末内联小标 */
+.wm.flat{
+  position:static;vertical-align:.18em;font-size:.66em;
+  margin-left:.42em;margin-right:0;padding:.06em .58em;
+}
+.wm.flash{animation:wmFlash .85s ease}
+@keyframes wmFlash{
+  0%{background:color-mix(in srgb,var(--accent) 62%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 26%,transparent)}
+  100%{background:color-mix(in srgb,var(--accent) 15%,transparent);box-shadow:0 1px 6px color-mix(in srgb,var(--accent) 18%,transparent)}
+}
+
+/* ---------- editor ---------- */
+#editorWrap{display:none;height:100%}
+body.mode-edit #editorWrap{display:flex}
+body.mode-edit #reader,body.mode-edit #welcome{display:none}
+.pane{flex:1;min-width:0;overflow-y:auto;position:relative;height:100%}
+.pane.src{border-right:1px solid var(--border)}
+#editor{
+  width:100%;height:calc(100% - 30px);border:0;outline:0;resize:none;
+  background:transparent;padding:14px 26px 40vh;display:block;
+  font-family:var(--font);font-size:calc(var(--fs)*.92);line-height:1.85;letter-spacing:.01em;
+  color:var(--fg);tab-size:2;white-space:pre-wrap;
+}
+#preview{padding:16px 26px 40vh}
+.pane-label{
+  position:sticky;top:0;z-index:3;height:30px;box-sizing:border-box;
+  padding:9px 26px 0;font-size:10.5px;letter-spacing:.14em;
+  color:var(--muted);background:var(--bg);
+  text-transform:uppercase;pointer-events:none;opacity:.8;
+}
+
+/* ---------- welcome ---------- */
+#welcome{
+  height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding:40px;text-align:center;color:var(--muted);
+}
+body.has-doc #welcome{display:none}
+.welcome-card{
+  border:1.5px dashed var(--border);border-radius:18px;padding:42px 48px;max-width:560px;
+  transition:.2s;background:color-mix(in srgb,var(--panel) 60%,transparent);
+}
+.welcome-card.drag{border-color:var(--accent);background:var(--panel2)}
+.welcome-card h2{margin:0 0 8px;font-size:19px;color:var(--fg);font-weight:600}
+.welcome-card p{margin:0 0 22px;font-size:13px;line-height:1.9}
+.welcome-card .btn{margin:0 4px}
+.welcome-keys{margin-top:20px;font-size:12px;line-height:2;opacity:.8}
+kbd{
+  background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;
+  padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--fg);
+}
+
+/* ---------- panels ---------- */
+.side-panel{
+  position:absolute;top:0;right:0;bottom:0;width:326px;background:var(--panel);
+  border-left:1px solid var(--border);z-index:60;display:flex;flex-direction:column;
+  transform:translateX(101%);transition:transform .24s cubic-bezier(.3,.8,.4,1);
+  box-shadow:-8px 0 32px rgba(0,0,0,.18);
+}
+.side-panel.show{transform:translateX(0)}
+.panel-head{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;
+}
+.icon-btn{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--muted);font-size:17px;line-height:1}
+.icon-btn:hover{background:var(--panel2);color:var(--fg)}
+.panel-body{flex:1;overflow-y:auto;padding:6px 16px 30px}
+.panel-body section{padding:14px 0;border-bottom:1px solid var(--border)}
+.panel-body section:last-child{border-bottom:0}
+.panel-body h4{
+  margin:0 0 12px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;
+}
+.swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.swatch{
+  height:52px;border-radius:9px;border:1.5px solid var(--border);display:grid;place-items:center;
+  font-size:13px;font-weight:600;position:relative;overflow:hidden;transition:.16s;
+}
+.swatch span{position:relative;z-index:1}
+.swatch:hover{transform:translateY(-1px)}
+.swatch.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+.row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.row label{flex:0 0 auto}
+.color-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.color-item{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;
+  font-size:11.5px;color:var(--muted);cursor:pointer;
+}
+input[type=color]{
+  width:26px;height:22px;padding:0;border:0;border-radius:5px;
+  background:transparent;cursor:pointer;flex:0 0 auto;
+}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:1px solid rgba(128,128,128,.35);border-radius:5px}
+.field{margin-bottom:12px}
+.field .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.field .lab b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:4px;border-radius:3px;background:var(--border);outline:0;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);
+  border:2px solid var(--panel);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25);
+}
+.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin:9px 0;cursor:pointer}
+.chk input{accent-color:var(--accent);width:14px;height:14px}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.75;margin-top:8px;opacity:.85}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;color:var(--muted);align-items:center}
+select.sel{
+  width:100%;height:32px;border-radius:7px;border:1px solid var(--border);
+  background:var(--bg);padding:0 8px;font-size:13px;outline:0;
+}
+
+/* replace bar */
+.replace-bar{
+  position:fixed;top:60px;left:50%;width:min(700px,92vw);
+  transform:translate(-50%,-160%);opacity:0;pointer-events:none;
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;
+  z-index:120;display:flex;flex-direction:column;gap:9px;box-shadow:0 16px 50px rgba(0,0,0,.42);
+  transition:transform .24s cubic-bezier(.3,.8,.4,1),opacity .18s ease;
+}
+.replace-bar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.replace-bar .line{display:flex;align-items:center;gap:8px}
+.replace-bar input[type=text]{
+  flex:1;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--bg);
+  padding:0 11px;font-size:13px;outline:0;
+}
+.replace-bar input[type=text]:focus{border-color:var(--accent)}
+.replace-bar .mini{height:28px;padding:0 9px;border-radius:6px;color:var(--muted);font-size:12px}
+.replace-bar .mini:hover{background:var(--panel2);color:var(--fg)}
+.replace-bar .mini.on{color:var(--accent);background:var(--panel2)}
+.replace-bar .mini.act{background:var(--accent);color:#fff;font-weight:600}
+.replace-bar .mini.act:hover{filter:brightness(1.08)}
+.count{font-size:12px;color:var(--muted);min-width:76px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* status bar */
+.statusbar{
+  flex:0 0 auto;height:30px;display:flex;align-items:center;gap:14px;padding:0 14px;
+  background:var(--panel);border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);
+  font-variant-numeric:tabular-nums;z-index:20;
+}
+.statusbar .sb-item{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.statusbar button{color:var(--muted);padding:2px 6px;border-radius:4px;font-size:11.5px}
+.statusbar button:hover{background:var(--panel2);color:var(--fg)}
+#stSel{color:var(--accent);font-weight:600}
+#stSel.hide{display:none}
+
+/* 选中浮标：字数 + 一键复制选中的文字 */
+#selPop{
+  position:fixed;z-index:130;pointer-events:none;
+  display:flex;align-items:center;gap:7px;
+  background:var(--fg);color:var(--bg);font-size:11.5px;font-weight:700;
+  padding:3px 4px 3px 11px;border-radius:14px;white-space:nowrap;
+  opacity:0;transform:translate(-50%,0) scale(.92);
+  transition:opacity .13s ease,transform .13s ease;
+  box-shadow:0 6px 18px rgba(0,0,0,.3);
+}
+#selPop.show{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
+#selPop.dragging{pointer-events:none}   /* 拖选过程中别挡住鼠标 */
+#selPop i{font-style:normal;opacity:.6;font-weight:500;margin-left:-3px;font-size:10.5px}
+#selCopy{
+  height:20px;padding:0 9px;border-radius:11px;font-size:11px;font-weight:700;
+  background:var(--bg);color:var(--fg);
+  transition:background .14s,color .14s;letter-spacing:.02em;
+}
+#selCopy:hover{background:var(--accent);color:#fff}
+#selCopy.done{background:var(--ok);color:#fff}
+
+/* toast */
+#toast{
+  position:fixed;left:50%;bottom:52px;transform:translate(-50%,14px);
+  background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12.5px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:200;font-weight:500;max-width:80vw;
+  box-shadow:0 8px 28px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- 背景皮肤 ---------- */
+html{background:var(--bg)}
+#bgSkin{
+  position:fixed;inset:-40px;z-index:0;pointer-events:none;opacity:0;
+  background-position:50% 50%;background-repeat:no-repeat;background-size:cover;
+  transition:opacity .42s ease;
+}
+#bgSkin.on{opacity:1}
+#bgMask{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--bg);opacity:0;transition:opacity .42s ease}
+.app{position:relative;z-index:1}
+body.skin-on{background:transparent}
+body.skin-on .topbar,
+body.skin-on .sidebar,
+body.skin-on .side-panel,
+body.skin-on .statusbar{
+  background:var(--panel-t);backdrop-filter:blur(18px) saturate(1.12);
+}
+body.skin-on .wm-sec-hd{background:transparent}
+body.skin-on .pane-label{background:transparent}
+body.skin-on .pane.src{background:var(--paper-t)}
+body.skin-on .seg button.on,
+body.skin-on .sb-tabs button.on{background:var(--bg-t)}
+body.skin-on .file-filter{background:var(--bg-t)}
+body.skin-on .welcome-card{background:var(--panel-t);backdrop-filter:blur(10px)}
+body.skin-on .prose{
+  background:var(--paper-t);border-radius:14px;
+  box-shadow:0 2px 26px rgba(0,0,0,.10);
+}
+
+/* 皮肤缩略图 */
+.skin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.skin-cell{
+  position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+  border:1px solid var(--border);background:var(--panel2);cursor:pointer;transition:.15s;
+}
+.skin-cell:hover{border-color:var(--muted)}
+.skin-cell.on{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.skin-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.skin-cell .sn{
+  position:absolute;left:0;right:0;bottom:0;padding:11px 5px 3px;
+  font-size:9.5px;color:#fff;letter-spacing:.02em;
+  background:linear-gradient(transparent,rgba(0,0,0,.72));
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.skin-cell .del{
+  position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;font-size:11px;line-height:16px;text-align:center;
+  opacity:0;transition:.15s;
+}
+.skin-cell:hover .del{opacity:1}
+.skin-cell .del:hover{background:rgba(200,60,60,.9)}
+.skin-add{
+  display:grid;place-items:center;gap:2px;aspect-ratio:4/3;cursor:pointer;
+  border:1.5px dashed var(--border);border-radius:8px;color:var(--muted);
+  font-size:10.5px;letter-spacing:.04em;transition:.15s;background:transparent;
+}
+.skin-add:hover{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.skin-add .plus{font-size:15px;line-height:1;opacity:.9}
+
+/* 我的配置 */
+.prof-item{
+  display:flex;align-items:center;gap:7px;padding:7px 9px;margin-bottom:6px;
+  border:1px solid var(--border);border-radius:8px;font-size:12.5px;transition:.15s;
+}
+.prof-item:hover{border-color:var(--muted)}
+.prof-item .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.prof-item .pt{font-size:10px;color:var(--muted);flex:0 0 auto;opacity:.75}
+.prof-item button{
+  flex:0 0 auto;font-size:11px;padding:2px 7px;border-radius:6px;
+  border:1px solid var(--border);color:var(--muted);transition:.14s;
+}
+.prof-item button:hover{border-color:var(--accent);color:var(--accent)}
+.prof-item button.rm:hover{border-color:#c0554f;color:#c0554f}
+.prof-empty{padding:6px 2px 10px;color:var(--muted);font-size:12px;line-height:1.7}
+#profName{
+  flex:1;min-width:0;height:29px;border-radius:7px;border:1px solid var(--border);
+  background:var(--bg);padding:0 9px;font-size:12.5px;outline:0;
+}
+#profName:focus{border-color:var(--accent)}
+
+@media (max-width:1150px){ .hide-md{display:none} }
+@media (max-width:860px){
+  .brand span{display:none}
+  .sidebar{position:absolute;top:0;bottom:0;left:0;z-index:70;box-shadow:8px 0 30px rgba(0,0,0,.25)}
+  .sidebar.collapsed{margin-left:0;transform:translateX(-101%);transition:transform .22s}
+  .filechip{max-width:130px}
+  #fileName{max-width:90px}
+  .hide-sm{display:none}
+}
+@media (max-width:900px){
+  body.mode-edit #editorWrap{flex-direction:column}
+  .pane.src{border-right:0;border-bottom:1px solid var(--border);flex:0 0 50%}
+  .side-panel{width:100%;max-width:340px}
+}
+</style>
+</head>
+<body class="mode-read">
+
+<div id="bgSkin"></div>
+<div id="bgMask"></div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H19v18H6.5A2.5 2.5 0 0 0 4 22V4.5z"/><path d="M8 7h7M8 11h7M8 15h4"/>
+      </svg>
+      <span>小说阅读器</span>
+    </div>
+
+    <div class="filechip">
+      <span class="dot" id="dirtyDot"></span>
+      <span id="fileName">未打开文件</span>
+      <button class="statpill hide" id="statPill" title="切换这个文件的草稿 / 已修订状态（Ctrl+Shift+D）">草稿</button>
+    </div>
+
+    <div class="sep"></div>
+    <button class="btn" id="btnFolder" title="打开文件夹作为项目 (Ctrl+Shift+O)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17V7.5z"/>
+      </svg>
+      文件夹
+    </button>
+    <button class="btn" id="btnResume" style="display:none"></button>
+    <button class="btn" id="btnOpen" title="打开单个文件 Ctrl+O">打开</button>
+    <button class="btn" id="btnSave" title="保存 Ctrl+S">保存</button>
+    <button class="btn ghost hide-md" id="btnSaveAs" title="另存为 Shift+Ctrl+S">另存为</button>
+    <button class="btn ghost hide-md" id="btnCopyAll" title="复制全文到剪贴板 Ctrl+Shift+C">复制全文</button>
+
+    <div class="spacer"></div>
+
+    <div class="seg">
+      <button id="btnRead" class="on">阅读</button>
+      <button id="btnEdit">编辑</button>
+    </div>
+    <div class="sep hide-sm"></div>
+    <button class="btn ghost" id="btnFind" title="查找替换 Ctrl+F">查找替换</button>
+    <button class="btn ghost hide-sm" id="btnToc" title="显示 / 隐藏侧栏 Ctrl+B">侧栏</button>
+    <button class="btn ghost" id="btnSettings" title="阅读设置">设置</button>
+  </header>
+
+  <div class="progress"><i id="progressBar"></i></div>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <div class="sb-tabs hide" id="sbTabs">
+          <button data-tab="files" class="on">文件</button>
+          <button data-tab="toc">目录</button>
+        </div>
+        <span id="sbTitle" style="font-size:11.5px;letter-spacing:.14em;color:var(--muted)">目录</span>
+        <button class="icon-btn" id="sbRefresh" title="重新扫描文件夹" style="display:none">⟳</button>
+      </div>
+
+      <div class="sb-project" id="sbProject" style="display:none">
+        <span>项目</span><b id="projectName"></b>
+      </div>
+
+      <div class="sb-pane hide" id="paneFiles">
+        <div class="statbar hide" id="statBar">
+          <button data-st="all" class="on">全部<b id="stAll">0</b></button>
+          <button data-st="draft">草稿<b id="stDraft">0</b></button>
+          <button data-st="revised">已修订<b id="stRev">0</b></button>
+        </div>
+        <input class="file-filter" id="fileFilter" placeholder="筛选文件名…" style="display:none">
+        <div class="file-list" id="fileList"></div>
+      </div>
+
+      <div class="sb-pane" id="paneToc">
+        <div class="sb-scroll">
+          <div class="pane-hint" id="tocHint">章节</div>
+          <div class="toc" id="toc"></div>
+        </div>
+      </div>
+
+      <div class="wm-sec" id="wmNav" style="display:none">
+        <div class="wm-sec-hd"><span>字数标记</span><b id="wmNavCount"></b></div>
+        <div id="wmList"></div>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <article id="reader" class="prose"></article>
+
+      <div id="editorWrap">
+        <div class="pane src">
+          <div class="pane-label">Markdown 源码</div>
+          <textarea id="editor" spellcheck="false" placeholder="在这里输入或粘贴 Markdown 小说内容……"></textarea>
+        </div>
+        <div class="pane pv">
+          <div class="pane-label">预览</div>
+          <article id="preview" class="prose"></article>
+        </div>
+      </div>
+
+      <div id="welcome">
+        <div class="welcome-card" id="dropZone">
+          <h2>打开一部 Markdown 小说</h2>
+          <p>拖入文件即可阅读；选择一个文件夹，就会成为一个可记住的项目</p>
+          <button class="btn primary" id="btnFolder2">打开文件夹</button>
+          <button class="btn ghost" id="btnOpen2">打开单个文件</button>
+          <button class="btn ghost" id="btnNew">新建空白</button>
+          <div class="welcome-keys">
+            <kbd>Ctrl</kbd>+<kbd>O</kbd> 打开文件 &nbsp;·&nbsp;
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> 打开文件夹 &nbsp;·&nbsp;
+            <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存 &nbsp;·&nbsp;
+            <kbd>Ctrl</kbd>+<kbd>E</kbd> 编辑 &nbsp;·&nbsp;
+            <kbd>Ctrl</kbd>+<kbd>F</kbd> 查找
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 设置面板 -->
+    <aside class="side-panel" id="settingsPanel">
+      <div class="panel-head"><span>阅读设置</span><button class="icon-btn" id="closeSettings">×</button></div>
+      <div class="panel-body">
+
+        <section>
+          <h4>配色方案</h4>
+          <div class="swatches" id="swatches"></div>
+          <div class="color-row">
+            <label class="color-item"><span>背景</span><input type="color" id="bgColor"></label>
+            <label class="color-item"><span>文字</span><input type="color" id="fgColor"></label>
+            <label class="color-item"><span>强调</span><input type="color" id="accentColor"></label>
+          </div>
+          <label class="chk"><input type="checkbox" id="autoFg" checked> 换背景时自动匹配文字颜色</label>
+          <div class="row"><button class="btn ghost" id="resetFont" style="padding-left:0">恢复默认版式</button></div>
+        </section>
+
+        <section>
+          <h4>背景皮肤</h4>
+          <div class="skin-grid" id="skinGrid"></div>
+          <input type="file" id="skinFile" accept="image/*" hidden>
+          <div class="field" style="margin-top:12px">
+            <div class="lab"><span>显示方式</span><b></b></div>
+            <select class="sel" id="skinFit">
+              <option value="cover">铺满窗口</option>
+              <option value="contain">完整适应</option>
+              <option value="repeat">平铺</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="lab"><span>图片浓度</span><b id="vSkinOp">100%</b></div>
+            <input type="range" id="skinOp" min="5" max="100" step="1">
+          </div>
+          <div class="field">
+            <div class="lab"><span>模糊</span><b id="vSkinBlur">0px</b></div>
+            <input type="range" id="skinBlur" min="0" max="24" step="1">
+          </div>
+          <div class="field">
+            <div class="lab"><span>压暗（保证字看得清）</span><b id="vSkinDim">45%</b></div>
+            <input type="range" id="skinDim" min="0" max="92" step="1">
+          </div>
+          <div class="field">
+            <div class="lab"><span>正文衬底</span><b id="vSkinPaper">60%</b></div>
+            <input type="range" id="skinPaper" min="0" max="96" step="1">
+          </div>
+          <div class="row" style="display:flex;gap:6px">
+            <button class="btn ghost" id="btnSkinPick" style="padding-left:0">上传背景图…</button>
+            <button class="btn ghost" id="btnSkinOff" style="margin-left:auto">暂不用皮肤</button>
+          </div>
+          <div class="hint">支持 jpg / png / webp / gif（大图会自动压到合适尺寸）。图片与设置都存在这台电脑上，下次打开自动还原。</div>
+        </section>
+
+        <section>
+          <h4>我的配置</h4>
+          <div id="profList"></div>
+          <div class="row" style="display:flex;gap:6px;margin-top:8px">
+            <input id="profName" placeholder="给当前这套配置起个名字…">
+            <button class="btn ghost" id="btnProfSave" style="flex:0 0 auto">保存</button>
+          </div>
+          <div class="hint" id="cfgHint">配色、版式、皮肤都会自动记在本机；也可以在这里存成多套配置，随时一键换回来。</div>
+        </section>
+
+        <section>
+          <h4>版式</h4>
+          <div class="field">
+            <div class="lab"><span>字号</span><b id="vFs">19px</b></div>
+            <input type="range" id="rFs" min="14" max="44" step="1">
+          </div>
+          <div class="field">
+            <div class="lab"><span>行距</span><b id="vLh">1.9</b></div>
+            <input type="range" id="rLh" min="1.3" max="2.8" step="0.05">
+          </div>
+          <div class="field">
+            <div class="lab"><span>字间距</span><b id="vLs">0.02em</b></div>
+            <input type="range" id="rLs" min="0" max="0.16" step="0.01">
+          </div>
+          <div class="field">
+            <div class="lab"><span>段间距</span><b id="vGap">0.9em</b></div>
+            <input type="range" id="rGap" min="0" max="2" step="0.1">
+          </div>
+          <div class="field">
+            <div class="lab"><span>正文宽度</span><b id="vW">720px</b></div>
+            <input type="range" id="rW" min="480" max="1200" step="10">
+          </div>
+          <div class="field">
+            <div class="lab"><span>字体</span><b></b></div>
+            <select class="sel" id="fontSel">
+              <option value="sans">黑体 / 系统默认</option>
+              <option value="serif">宋体（衬线）</option>
+              <option value="kai">楷体</option>
+              <option value="mono">等宽</option>
+            </select>
+          </div>
+          <label class="chk"><input type="checkbox" id="optIndent"> 段首缩进两字</label>
+        </section>
+
+        <section>
+          <h4>字数标记</h4>
+          <div class="field">
+            <div class="lab"><span>每隔多少字打一个标记</span><b></b></div>
+            <select class="sel" id="wmStep">
+              <option value="0">关闭</option>
+              <option value="500">每 500 字</option>
+              <option value="1000">每 1000 字</option>
+              <option value="2000">每 2000 字（默认）</option>
+              <option value="3000">每 3000 字</option>
+              <option value="5000">每 5000 字</option>
+              <option value="10000">每 10000 字</option>
+            </select>
+          </div>
+          <div class="hint">标记按正文渲染后的累计字数计算（不计空白与代码块）。每到间隔就标住包含这一字的整个段落：小标挂在段落左侧空白处，数字是这一段结束时的真实字数；左边空位不够（编辑模式窄栏）时贴在段末。</div>
+        </section>
+
+        <section>
+          <h4>阅读</h4>
+          <label class="chk"><input type="checkbox" id="optSoftbreak" checked> 保留单行换行（小说友好）</label>
+          <label class="chk"><input type="checkbox" id="optChap" checked> 优雅排版章节标题</label>
+          <label class="chk"><input type="checkbox" id="optSel" checked> 选中文字时显示字数与「复制」按钮</label>
+          <div class="hint">会自动识别「第一章 / 第 3 节 / 楔子 / 尾声 / Chapter 1」等标题，并加入目录。</div>
+        </section>
+
+        <section>
+          <h4>快捷键</h4>
+          <div class="keys">
+            <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></span><span>打开文件夹</span>
+            <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span><span>打开文件</span>
+            <span><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span>保存</span>
+            <span><kbd>Ctrl</kbd>+<kbd>E</kbd></span><span>阅读 / 编辑</span>
+            <span><kbd>Ctrl</kbd>+<kbd>F</kbd></span><span>查找替换</span>
+            <span><kbd>Ctrl</kbd>+<kbd>B</kbd></span><span>显示 / 隐藏侧栏</span>
+            <span><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></span><span>调字号</span>
+            <span><kbd>Esc</kbd></span><span>关闭面板</span>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+
+    <!-- 查找替换 -->
+    <div class="replace-bar" id="replaceBar">
+      <div class="line">
+        <input type="text" id="findInput" placeholder="查找内容…">
+        <button class="mini" id="findPrev" title="上一个">↑</button>
+        <button class="mini" id="findNext" title="下一个">↓</button>
+        <span class="count" id="findCount">—</span>
+        <button class="icon-btn" id="closeFind">×</button>
+      </div>
+      <div class="line">
+        <input type="text" id="replaceInput" placeholder="替换为…">
+        <button class="mini" id="btnReplaceOne">替换</button>
+        <button class="mini act" id="btnReplaceAll">全部替换</button>
+      </div>
+      <div class="line">
+        <button class="mini" id="optCase">Aa 区分大小写</button>
+        <button class="mini" id="optRegex">.* 正则</button>
+        <span class="hint" style="margin:0 0 0 auto">正则模式支持 $1 $2 捕获组</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="statusbar">
+    <span class="sb-item" id="stChars">0 字</span>
+    <span class="sb-item" id="stLines">0 行</span>
+    <span class="sb-item" id="stProgress">0%</span>
+    <span class="sb-item hide" id="stSel">已选 0 字</span>
+    <div class="spacer" style="flex:1"></div>
+    <div class="sb-item">
+      <button id="fsDown" title="减小字号">A−</button>
+      <button id="fsUp" title="增大字号">A+</button>
+    </div>
+    <span class="sb-item" id="stMode">阅读模式</span>
+    <span class="sb-item" id="stSave">—</span>
+  </footer>
+</div>
+
+<div id="selPop"><span id="selPopNum">0</span><i>字</i><button id="selCopy" title="复制选中的文字">复制</button></div>
+<div id="toast"></div>
+<input type="file" id="fileInput" accept=".md,.markdown,.mdtxt,.txt,text/markdown,text/plain" hidden>
+<input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   0. 基础工具
+   ===================================================================== */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+const esc = s => String(s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function hexToRgb(h){
+  h = String(h||"#000").replace("#","");
+  if(h.length===3) h = h.split("").map(c=>c+c).join("");
+  const n = parseInt(h,16);
+  if(isNaN(n)) return {r:0,g:0,b:0};
+  return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
+}
+function rgbToHex(c){
+  const f = v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0");
+  return "#"+f(c.r)+f(c.g)+f(c.b);
+}
+function mix(a,b,t){ const A=hexToRgb(a),B=hexToRgb(b); return rgbToHex({r:A.r+(B.r-A.r)*t, g:A.g+(B.g-A.g)*t, b:A.b+(B.b-A.b)*t}); }
+function lum(h){
+  const {r,g,b} = hexToRgb(h);
+  const f = v => { v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);
+}
+const fmt = n => n.toLocaleString("en-US");
+
+let toastTimer = null;
+function toast(msg, ms){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), ms || 2000);
+}
+
+/* ---------- IndexedDB（存项目句柄） ---------- */
+const IDB_NAME = "mdnr", IDB_STORE = "kv";
+function idbOpen(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, val){
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const rq = tx.objectStore(IDB_STORE).get(key);
+    rq.onsuccess = () => { db.close(); resolve(rq.result); };
+    rq.onerror = () => { db.close(); reject(rq.error); };
+  });
+}
+async function idbDel(key){
+  const db = await idbOpen();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); resolve(); };
+  });
+}
+
+/* =====================================================================
+   1. Markdown 渲染器
+   ===================================================================== */
+const MD = (function(){
+
+  const CHAP_RE = new RegExp(
+    "^(第[〇零一二三四五六七八九十百千万两0-9０-９]{1,12}[章节回卷篇部集话幕]" +
+    "([\\s\\-—:：、.．·].*)?$" +
+    "|(楔子|序章|序言|序|引子|前言|尾声|终章|结局|后记|番外)[\\s\\-—:：、.．]?.*$" +
+    "|(Chapter|CHAPTER|Prologue|Epilogue|Interlude)\\s*\\d*.*$)"
+  );
+
+  const isBlank = l => !l || !l.trim();
+  const HR_RE   = /^ {0,3}((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/;
+  const HEAD_RE = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
+  const FENCE_RE= /^ {0,3}(`{3,}|~{3,})\s*([^`\s]*)\s*$/;
+  const LIST_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+  const QUOTE_RE= /^ {0,3}>/;
+
+  function inline(text){
+    const codes = [];
+    let s = String(text).replace(/`([^`\n]+)`/g, (m,c) => {
+      codes.push(c);
+      return "\u0001" + (codes.length-1) + "\u0001";
+    });
+
+    s = esc(s);
+
+    s = s.replace(/!\[([^\]]*)\]\(\s*([^)\s]+)\s*\)/g,
+      (m,alt,src) => '<img src="'+src+'" alt="'+alt+'" loading="lazy">');
+    s = s.replace(/\[([^\]]+)\]\(\s*([^)\s]+)\s*\)/g,
+      (m,t,href) => '<a href="'+href+'" target="_blank" rel="noopener">'+t+'</a>');
+    s = s.replace(/(^|[\s(>])(https?:\/\/[^\s<)）]+)/g,
+      (m,p,u) => p + '<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>');
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
+    s = s.replace(/~~([^~\n]+)~~/g, "<del>$1</del>");
+    s = s.replace(/(^|[^*\w])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(/(^|[^_\w])_([^_\n]+)_/g, "$1<em>$2</em>");
+
+    s = s.replace(/\u0001(\d+)\u0001/g, (m,i) => "<code>"+esc(codes[+i])+"</code>");
+    return s;
+  }
+
+  function chapText(line){
+    let t = String(line).trim();
+    if(!t || t.length > 64) return null;
+    t = t.replace(/^\*\*(.+)\*\*$/, "$1").replace(/^__(.+)__$/, "$1").trim();
+    if(CHAP_RE.test(t)) return t;
+    return null;
+  }
+
+  function splitRow(row){
+    let s = String(row).trim();
+    if(s.startsWith("|")) s = s.slice(1);
+    if(s.endsWith("|"))   s = s.slice(0,-1);
+    return s.split("|").map(c => c.trim());
+  }
+  function isSepRow(l){
+    if(!l) return false;
+    const t = l.trim();
+    if(t.indexOf("|") < 0 || t.indexOf("-") < 0) return false;
+    return /^[\s|:\-]+$/.test(t);
+  }
+  function isTableStart(lines, i){
+    return i+1 < lines.length && lines[i].indexOf("|") >= 0 && isSepRow(lines[i+1]);
+  }
+
+  function parseList(lines, start){
+    const items = [];
+    let i = start, base = -1;
+
+    while(i < lines.length){
+      const line = lines[i];
+      if(isBlank(line)){
+        let j = i+1;
+        while(j < lines.length && isBlank(lines[j])) j++;
+        if(j < lines.length && LIST_RE.test(lines[j])) { i = j; continue; }
+        break;
+      }
+      const m = line.match(LIST_RE);
+      if(m){
+        const indent = m[1].replace(/\t/g,"    ").length;
+        if(base < 0) base = indent;
+        if(indent < base) break;
+        const ordered = /\d/.test(m[2]);
+        if(indent === base && items.length && ordered !== items[0].ordered) break;
+        items.push({indent, ordered, text:m[3]});
+        i++;
+        continue;
+      }
+      if(items.length && /^\s{2,}\S/.test(line)){
+        items[items.length-1].text += "\n" + line.trim();
+        i++;
+        continue;
+      }
+      break;
+    }
+
+    if(!items.length) return {html:"", next:start+1};
+
+    let pos = 0;
+    const build = (indent) => {
+      const ord = items[pos].ordered;
+      let html = ord ? "<ol>" : "<ul>";
+      while(pos < items.length && items[pos].indent >= indent){
+        const it = items[pos];
+        let inner = inline(it.text);
+        pos++;
+        while(pos < items.length && items[pos].indent > it.indent){
+          inner += build(items[pos].indent);
+        }
+        html += "<li>" + inner + "</li>";
+      }
+      html += ord ? "</ol>" : "</ul>";
+      return html;
+    };
+
+    return {html: build(items[0].indent), next:i};
+  }
+
+  function blocks(lines, ctx){
+    const out = [];
+    let i = 0;
+
+    function addHeading(level, raw){
+      const text = String(raw).replace(/[*_`]/g,"").trim();
+      ctx.counter++;
+      const id = "sec-"+ctx.counter;
+      ctx.headings.push({level, text, id});
+      const cls = (settings.chapStyle && CHAP_RE.test(text)) ? ' class="chap"' : "";
+      const lv = Math.min(6, level);
+      return "<h"+lv+' id="'+id+'"'+cls+">"+inline(text)+"</h"+lv+">";
+    }
+
+    while(i < lines.length){
+      const line = lines[i];
+
+      if(isBlank(line)){ i++; continue; }
+
+      const fm = line.match(FENCE_RE);
+      if(fm){
+        const ch = fm[1][0], len = fm[1].length, lang = fm[2] || "";
+        const buf = [];
+        i++;
+        while(i < lines.length){
+          const m2 = lines[i].match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+          if(m2 && m2[1][0] === ch && m2[1].length >= len){ i++; break; }
+          buf.push(lines[i]); i++;
+        }
+        out.push('<pre class="code"><code'+(lang?' class="lang-'+esc(lang)+'"':'')+'>'
+                 + esc(buf.join("\n")) + "</code></pre>");
+        continue;
+      }
+
+      const hm = line.match(HEAD_RE);
+      if(hm){ out.push(addHeading(hm[1].length, hm[2])); i++; continue; }
+
+      if(HR_RE.test(line)){ out.push("<hr>"); i++; continue; }
+
+      if(QUOTE_RE.test(line)){
+        const buf = [];
+        while(i < lines.length){
+          const l = lines[i];
+          if(isBlank(l)){
+            let j = i+1;
+            while(j < lines.length && isBlank(lines[j])) j++;
+            if(j < lines.length && QUOTE_RE.test(lines[j])){ buf.push(""); i = j; continue; }
+            break;
+          }
+          if(!QUOTE_RE.test(l)) break;
+          buf.push(l.replace(/^ {0,3}>\s?/, ""));
+          i++;
+        }
+        out.push("<blockquote>" + blocks(buf, ctx) + "</blockquote>");
+        continue;
+      }
+
+      if(isTableStart(lines, i)){
+        const head = splitRow(lines[i]);
+        const seps = splitRow(lines[i+1]).map(s =>
+          (s.startsWith(":") && s.endsWith(":")) ? "center" :
+          s.endsWith(":") ? "right" : s.startsWith(":") ? "left" : "");
+        let j = i + 2;
+        const rows = [];
+        while(j < lines.length && !isBlank(lines[j]) && lines[j].indexOf("|") >= 0){
+          rows.push(splitRow(lines[j])); j++;
+        }
+        const al = idx => seps[idx] ? ' style="text-align:'+seps[idx]+'"' : "";
+        let html = '<div class="table-wrap"><table><thead><tr>';
+        head.forEach((c,k) => { html += "<th"+al(k)+">"+inline(c)+"</th>"; });
+        html += "</tr></thead><tbody>";
+        rows.forEach(r => {
+          html += "<tr>";
+          head.forEach((_,k) => { html += "<td"+al(k)+">"+inline(r[k] === undefined ? "" : r[k])+"</td>"; });
+          html += "</tr>";
+        });
+        html += "</tbody></table></div>";
+        out.push(html);
+        i = j;
+        continue;
+      }
+
+      if(LIST_RE.test(line)){
+        const res = parseList(lines, i);
+        out.push(res.html);
+        i = res.next;
+        continue;
+      }
+
+      if(i+1 < lines.length && /^ {0,3}(=+|-+)\s*$/.test(lines[i+1])){
+        out.push(addHeading(lines[i+1].trim()[0] === "=" ? 1 : 2, line.trim()));
+        i += 2;
+        continue;
+      }
+
+      const buf = [];
+      while(i < lines.length && !isBlockStart(lines, i)){
+        buf.push(lines[i]);
+        i++;
+      }
+      if(!buf.length){ i++; continue; }
+
+      if(buf.length === 1){
+        const ct = chapText(buf[0]);
+        if(ct){ out.push(addHeading(2, ct)); continue; }
+      }
+
+      const inner = buf.map(l => inline(l)).join(settings.softbreak ? "<br>" : "\n");
+      out.push("<p>" + inner + "</p>");
+    }
+
+    return out.join("\n");
+  }
+
+  function isBlockStart(lines, idx){
+    const l = lines[idx];
+    if(isBlank(l)) return true;
+    if(HEAD_RE.test(l)) return true;
+    if(FENCE_RE.test(l)) return true;
+    if(QUOTE_RE.test(l)) return true;
+    if(LIST_RE.test(l)) return true;
+    if(HR_RE.test(l)) return true;
+    if(isTableStart(lines, idx)) return true;
+    return false;
+  }
+
+  function render(src){
+    const ctx = {headings:[], counter:0};
+    const lines = String(src).replace(/\r\n?/g,"\n").split("\n");
+    const html = blocks(lines, ctx);
+    return {html, headings:ctx.headings};
+  }
+
+  return {render, inline};
+})();
+
+/* =====================================================================
+   2. 状态 / 设置
+   ===================================================================== */
+const FONTS = {
+  sans : '"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC",system-ui,sans-serif',
+  serif: '"Songti SC",SimSun,"Noto Serif SC","Source Han Serif SC",serif',
+  kai  : 'KaiTi,"Kaiti SC",STKaiti,"Songti SC",serif',
+  mono : '"Cascadia Code",Consolas,"Courier New",ui-monospace,monospace'
+};
+
+const PRESETS = [
+  {name:"夜间",  bg:"#16181c", fg:"#c8ccd4", accent:"#7aa2f7"},
+  {name:"墨黑",  bg:"#000000", fg:"#b4b4b4", accent:"#8ab4f8"},
+  {name:"米黄",  bg:"#f2e8d5", fg:"#3b342a", accent:"#a4693c"},
+  {name:"纸白",  bg:"#fbfaf7", fg:"#2b2b2b", accent:"#c05a3e"},
+  {name:"护眼",  bg:"#cfe6d0", fg:"#23342a", accent:"#2f7a52"},
+  {name:"灰蓝",  bg:"#e6ecf2", fg:"#27313c", accent:"#3f6ea8"}
+];
+
+const DEFAULT_SETTINGS = {
+  theme:{name:"夜间", bg:"#16181c", fg:"#c8ccd4", accent:"#7aa2f7"},
+  autoFg:true,
+  fs:19, lh:1.9, ls:0.02, gap:0.9, w:720,
+  font:"sans", indent:false, softbreak:true, chapStyle:true,
+  wmStep:2000, selCount:true,
+  bg:{enabled:false, skinId:"", fit:"cover", opacity:100, blur:0, dim:45, paper:60},
+  skins:[]
+};
+
+const state = {
+  content:"",
+  fileName:"",
+  handle:null,
+  dirty:false,
+  mode:"read",
+  headings:[],
+  matches:[],
+  matchIndex:-1,
+  charCount:0,
+  wmEls:null,
+  wmLines:null,
+  wmActive:null,
+  wmFlashTimer:null,
+  srcIdx:null,
+  selText:"",
+  selChars:0,
+  lastJumpN:0,
+  lastJumpAt:0,
+  fileFilterStatus:"all",
+  project:{handle:null, name:"", files:[], currentPath:"", fromFiles:false, collapsed:new Set(), status:{}},
+  pending:null
+};
+
+let settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+
+const LS_SETTINGS = "mdnr.settings.v1";
+const LS_DRAFT    = "mdnr.draft.v1";
+const LS_PROFILES = "mdnr.profiles.v1";
+const IDB_PROJECT = "project";
+const SKIN_PREFIX = "skin:";
+
+/* 把任意来源（localStorage / 磁盘 config.json / 配置快照）的片段补全成完整设置 */
+function mergeSettings(p){
+  const s = Object.assign({}, DEFAULT_SETTINGS, p || {});
+  s.theme = Object.assign({}, DEFAULT_SETTINGS.theme, (p && p.theme) || {});
+  s.bg    = Object.assign({}, DEFAULT_SETTINGS.bg,    (p && p.bg)    || {});
+  s.skins = Array.isArray(p && p.skins) ? p.skins.filter(x => x && x.id) : [];
+  return s;
+}
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(LS_SETTINGS);
+    if(raw) settings = mergeSettings(JSON.parse(raw));
+  }catch(e){}
+}
+function saveSettings(){
+  settings.savedAt = Date.now();
+  try{ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }catch(e){}
+  scheduleCfgSync();
+}
+
+/* ---------- 本地配置文件（Electron 下额外落一份到 userData/config.json） ---------- */
+let cfgPath = "";
+let cfgTimer = null;
+
+function scheduleCfgSync(){
+  if(!NATIVE || !NATIVE.setConfig) return;
+  clearTimeout(cfgTimer);
+  cfgTimer = setTimeout(flushCfg, 260);
+}
+async function flushCfg(){
+  if(!NATIVE || !NATIVE.setConfig) return;
+  clearTimeout(cfgTimer); cfgTimer = null;
+  try{ await NATIVE.setConfig({ v:1, ts:Date.now(), settings, profiles }); }catch(e){}
+}
+
+/* 启动时优先用「更新的一份」：磁盘 config.json 与 localStorage 取时间较新的 */
+async function bootConfig(){
+  loadProfiles();
+  if(!NATIVE || !NATIVE.getConfig) { renderProfiles(); return; }
+  try{
+    const r = await NATIVE.getConfig();
+    if(r && r.path) cfgPath = r.path;
+    const d = r && r.data;
+    if(d && d.settings){
+      const diskTs = +(d.settings.savedAt || d.ts || 0);
+      const lsTs   = +(settings.savedAt || 0);
+      if(diskTs > lsTs){
+        settings = mergeSettings(d.settings);
+        if(Array.isArray(d.profiles)){ profiles = d.profiles; saveProfiles(); }
+        try{ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }catch(e){}
+      }
+    } else {
+      flushCfg();   // 第一次运行：把当前默认配置落盘
+    }
+  }catch(e){}
+  renderProfiles();
+  scheduleCfgSync();   // 让磁盘那份与本次读到的配置保持一致
+}
+
+function applyTheme(){
+  const {bg, fg, accent} = settings.theme;
+  const dark = lum(bg) < 0.45;
+  const root = document.documentElement.style;
+  root.setProperty("--bg", bg);
+  root.setProperty("--fg", fg);
+  root.setProperty("--accent", accent);
+  root.setProperty("--panel",  mix(bg, dark ? "#ffffff" : "#000000", dark ? 0.055 : 0.035));
+  root.setProperty("--panel2", mix(bg, dark ? "#ffffff" : "#000000", dark ? 0.10  : 0.065));
+  root.setProperty("--paper",  mix(bg, dark ? "#ffffff" : "#000000", dark ? 0.02  : 0.02));
+  root.setProperty("--border", mix(bg, fg, 0.15));
+  root.setProperty("--muted",  mix(bg, fg, 0.52));
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  applySkin();
+}
+
+function applyTypography(){
+  const root = document.documentElement.style;
+  root.setProperty("--fs", settings.fs + "px");
+  root.setProperty("--lh", String(settings.lh));
+  root.setProperty("--ls", settings.ls + "em");
+  root.setProperty("--gap", settings.gap + "em");
+  root.setProperty("--w", settings.w + "px");
+  root.setProperty("--indent", settings.indent ? "2em" : "0em");
+  root.setProperty("--font", FONTS[settings.font] || FONTS.sans);
+  // 栏宽/字号变了，标记该挂左侧还是退回段末要重新判断
+  requestAnimationFrame(() => {
+    layoutWmBadges($("#reader"));
+    layoutWmBadges($("#preview"));
+  });
+}
+
+/* =====================================================================
+   3. 字数标记（每 N 字标住它所在的整个段落）
+   ===================================================================== */
+const WM_BLOCK = "p, li, blockquote, td, dd, h1, h2, h3, h4, h5, h6";
+
+function markWords(host){
+  if(!host) return 0;
+  const step = settings.wmStep | 0;
+
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      const p = node.parentElement;
+      if(!p) return NodeFilter.FILTER_REJECT;
+      if(p.closest("pre, code, .wm")) return NodeFilter.FILTER_REJECT;
+      if(!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  let count = 0;
+  let nextAt = step > 0 ? step : Infinity;
+  let curBlock = null;    // 当前所在段落
+  let curHit = false;     // 本段内是否跨过了阈值
+  let curTail = null;     // 本段最后一个文本节点（标打在这里的后面）
+  const jobs = [];
+  let node;
+
+  while((node = walker.nextNode())){
+    const block = node.parentElement.closest(WM_BLOCK) || node.parentElement;
+    if(block !== curBlock){
+      // 结算上一段：标落在段末，显示该处真实字数
+      if(curBlock && curHit && curTail) jobs.push({ node: curTail, at: count });
+      curBlock = block;
+      curHit = false;
+      curTail = null;
+    }
+    curTail = node;
+
+    const text = node.nodeValue;
+    for(let i = 0; i < text.length; i++){
+      const c = text.charCodeAt(i);
+      // 空白字符不计入
+      if(c === 32 || c === 9 || c === 10 || c === 13 || c === 0x3000) continue;
+      count++;
+      if(step > 0 && count >= nextAt){
+        curHit = true;
+        nextAt = count + step;
+      }
+    }
+  }
+  if(curBlock && curHit && curTail) jobs.push({ node: curTail, at: count });
+
+  // 统一插入，避免遍历过程中修改 DOM
+  jobs.forEach(({node, at}) => {
+    const span = document.createElement("span");
+    span.className = "wm";
+    span.dataset.n = at;
+    span.textContent = fmt(at);
+    span.title = "本段结束于 " + fmt(at) + " 字";
+    node.parentNode.insertBefore(span, node.nextSibling);
+
+    // 段落挂上定位上下文：标绝对定位在段落左侧，视觉上属于整段
+    const block = node.parentElement && node.parentElement.closest(WM_BLOCK);
+    if(block){
+      block.classList.add("wm-host");
+      // 引用块自带左边线，不再重复画
+      if(block.matches("p") && !block.closest("blockquote")){
+        block.classList.add("wm-mark");
+      }
+    }
+  });
+
+  layoutWmBadges(host);
+  return count;
+}
+
+/* 决定每个标记是挂在段落左侧的空白处，还是退回段末内联（窄栏放不下时） */
+function layoutWmBadges(host){
+  if(!host || !host.offsetParent) return;   // 当前不可见（另一个模式），切过去时会重算
+  const scroller = host.closest(".pane") || host.closest("#main") || host;
+  const base = scroller.getBoundingClientRect ? scroller.getBoundingClientRect().left : 0;
+  const list = host.querySelectorAll(".wm");
+  for(let i = 0; i < list.length; i++){
+    const w = list[i];
+    const blk = w.parentElement;
+    if(!blk) continue;
+    // 表格单元格紧挨着相邻列，左侧没有空位可用，直接退回内联
+    if(blk.matches("td, th")){ w.classList.add("flat"); continue; }
+    const left = blk.getBoundingClientRect().left - base;
+    w.classList.toggle("flat", left < 86);
+  }
+}
+
+/* 数一个段落自身的有效字数（口径与标记一致：不计空白、代码、标记自身） */
+function blockCharCount(block){
+  if(!block) return 0;
+  let c = 0;
+  const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!n.parentElement) return NodeFilter.FILTER_REJECT;
+      if(n.parentElement.closest("pre, code, .wm")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let n;
+  while((n = walker.nextNode())){
+    const s = n.nodeValue;
+    for(let i = 0; i < s.length; i++){
+      const ch = s.charCodeAt(i);
+      if(ch === 32 || ch === 9 || ch === 10 || ch === 13 || ch === 0x3000) continue;
+      c++;
+    }
+  }
+  return c;
+}
+
+/* 取标记所在段落的开头一小段文字，用作导航条目的摘要（跳过去时正落在这一行） */
+function textAfterMark(mark){
+  const line = mark.closest(WM_BLOCK) || mark.parentElement;
+  if(!line) return "";
+  let out = "";
+  const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!n.parentElement || n.parentElement.closest(".wm")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let n;
+  while((n = walker.nextNode())){
+    out += n.nodeValue;
+    if(out.replace(/\s+/g, "").length >= 40) break;
+  }
+  out = out.replace(/\s+/g, "");
+  return out.replace(/^[，。、；：！？…—·）】」』"'']+/, "").slice(0, 18);
+}
+
+function setActiveWm(btn){
+  $$("#wmList .wm-item").forEach(b => b.classList.toggle("active", b === btn));
+  // 标记很多时，让当前项自动露出来（只滚导航自身，不影响正文）
+  if(btn && btn.scrollIntoView){
+    try{ btn.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(e){}
+  }
+}
+
+/* 构建侧栏的「字数标记」导航 */
+function buildWmNav(){
+  const nav = $("#wmNav"), box = $("#wmList");
+  if(!nav || !box) return;
+
+  const step = settings.wmStep | 0;
+  const marks = $$("#reader .wm");
+  state.wmEls = marks;
+  state.wmLines = marks.map(m =>
+    m.closest(WM_BLOCK) || m);
+
+  if(!step || !marks.length){
+    nav.style.display = "none";
+    box.innerHTML = "";
+    state.wmActive = null;
+    return;
+  }
+
+  nav.style.display = "";
+  $("#wmNavCount").textContent = marks.length + " 处";
+
+  box.innerHTML = marks.map(m => {
+    const n = +m.dataset.n;
+    return '<button class="wm-item" data-n="'+n+'" title="跳到这一段（结束于 '+fmt(n)+' 字）">'
+      + '<i class="wm-bar"></i>'
+      + '<span class="wm-num">'+fmt(n)+'</span>'
+      + '<span class="wm-snip">'+esc(textAfterMark(m))+'</span>'
+      + '</button>';
+  }).join("");
+
+  box.querySelectorAll(".wm-item").forEach(btn => {
+    btn.addEventListener("click", () => jumpToMark(+btn.dataset.n, btn));
+  });
+
+  state.wmActive = null;
+}
+
+/* ---------- 字数 → 源码位置（编辑区源码同步跳转） ---------- */
+const SRC_FENCE = /^\s{0,3}(?:```|~~~)/;
+const SRC_HR = /^\s{0,3}(?:[-*_]\s*){3,}$/;
+
+// 一行 Markdown 去掉语法符号后、真正会被算进字数的文本
+function plainLine(line){
+  return line
+    .replace(/`[^`]*`/g, "")                                     // 行内代码不计字数
+    .replace(/^\s{0,3}#{1,6}\s+/, "")                            // 标题 #
+    .replace(/^\s{0,3}(?:>\s?)+/, "")                            // 引用 >
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")                     // 列表符号
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")                    // 图片 → alt
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")                     // 链接 → 文字
+    .replace(/<[^>]+>/g, "")                                     // HTML 标签
+    .replace(/[*_~]{1,3}/g, "")                                  // 强调符号
+    .replace(/^\s*\|/, "").replace(/\|\s*$/, "").replace(/\|/g, "")   // 表格竖线
+    .replace(/[\s\u3000]/g, "");                                 // 空白不计
+}
+
+// 每行「行首源码偏移 / 行前累计字数」
+function sourceIndex(){
+  if(state.srcIdx) return state.srcIdx;
+  const idx = [];
+  const lines = state.content.split("\n");
+  let before = 0, pos = 0, inFence = false;
+  for(let i = 0; i < lines.length; i++){
+    const raw = lines[i];
+    idx.push({ offset: pos, before });
+    pos += raw.length + 1;
+    if(SRC_FENCE.test(raw)){ inFence = !inFence; continue; }
+    if(inFence || SRC_HR.test(raw)) continue;
+    before += plainLine(raw).length;
+  }
+  state.srcIdx = idx;
+  return idx;
+}
+
+// 第 n 个字落在源码的哪个偏移（取该行行首）
+function sourceOffsetAt(n){
+  const idx = sourceIndex();
+  let lo = 0, hi = idx.length - 1, ans = 0;
+  while(lo <= hi){
+    const mid = (lo + hi) >> 1;
+    if(idx[mid].before < n){ ans = mid; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return idx[ans] ? idx[ans].offset : 0;
+}
+
+// 用镜像节点量出源码里某个偏移处的纵向位置（textarea 无法直接定位）
+function editorContentTop(ed, offset){
+  const cs = getComputedStyle(ed);
+  let m = ed._mirror;
+  if(!m){
+    m = document.createElement("div");
+    m.setAttribute("aria-hidden", "true");
+    m.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;"
+      + "box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;";
+    document.body.appendChild(m);
+    ed._mirror = m;
+  }
+  m.style.width = ed.clientWidth + "px";
+  m.style.fontFamily = cs.fontFamily;
+  m.style.fontSize = cs.fontSize;
+  m.style.fontWeight = cs.fontWeight;
+  m.style.fontStyle = cs.fontStyle;
+  m.style.lineHeight = cs.lineHeight;
+  m.style.letterSpacing = cs.letterSpacing;
+  m.style.padding = cs.padding;
+  m.style.tabSize = cs.tabSize || "2";
+
+  m.textContent = ed.value.slice(0, offset);
+  const st = document.createElement("span");
+  st.textContent = "\u200b";
+  m.appendChild(st);
+
+  return st.offsetTop - parseFloat(cs.paddingTop || 0);
+}
+
+function scrollEditorToChar(n){
+  const ed = $("#editor");
+  if(!ed || !ed.value) return;
+  const top = editorContentTop(ed, sourceOffsetAt(n));
+  scrollToPos(ed, Math.max(0, top - 12));
+}
+
+/* 跳到某个字数标记：把它所在的那一行顶到视口上方 */
+function jumpToMark(n, btn, sync){
+  if(!sync){
+    state.lastJumpN = n;
+    state.lastJumpAt = Date.now();
+  }
+
+  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  if(!host) return;
+  const mark = host.querySelector('.wm[data-n="'+n+'"]');
+  if(!mark) return;
+
+  const line = mark.closest(WM_BLOCK) || mark;
+  const scroller = state.mode === "edit" ? host.closest(".pane") : $("#main");
+  if(!scroller) return;
+
+  const pad = state.mode === "edit" ? 14 : 20;
+  const base = scroller.getBoundingClientRect().top;
+  const box = line.getBoundingClientRect();
+  // 标挂在段首左侧，跳到段首即可看见它
+  scrollToPos(scroller, scroller.scrollTop + box.top - base - pad);
+
+  // 编辑模式下，左侧 Markdown 源码同步定位到同一处（段的开头，而不是段末的字数）
+  if(state.mode === "edit") scrollEditorToChar(Math.max(1, n - Math.max(0, blockCharCount(line) - 1)));
+
+  // 闪烁提示，让眼睛立刻找到位置
+  mark.classList.remove("flash");
+  void mark.offsetWidth;
+  mark.classList.add("flash");
+  clearTimeout(state.wmFlashTimer);
+  state.wmFlashTimer = setTimeout(() => mark.classList.remove("flash"), 900);
+
+  if(!btn) btn = document.querySelector('#wmList .wm-item[data-n="'+n+'"]');
+  setActiveWm(btn);
+  state.wmActive = String(n);
+}
+
+/* =====================================================================
+   4. 渲染
+   ===================================================================== */
+function renderAll(){
+  state.srcIdx = null;
+  const res = MD.render(state.content);
+  state.headings = res.headings;
+
+  const reader = $("#reader");
+  reader.innerHTML = res.html;
+  state.charCount = markWords(reader);
+
+  const preview = $("#preview");
+  preview.innerHTML = res.html;
+  markWords(preview);
+
+  buildToc();
+  buildWmNav();
+  updateStats();
+}
+
+function buildToc(){
+  const box = $("#toc");
+  const n = state.headings.length;
+  $("#tocHint").textContent = n ? "章节 · 共 " + n + " 节" : "章节";
+
+  if(!n){
+    box.innerHTML = '<div class="toc-empty">' +
+      (state.content.trim()
+        ? "没有检测到标题。<br>用 <b># 第一章</b> 或直接写「第一章 xxx」独占一行，就会自动出现在这里。"
+        : "打开文件后，章节会显示在这里。") + "</div>";
+    return;
+  }
+  box.innerHTML = state.headings.map((h, idx) => {
+    const lv = Math.min(3, Math.max(1, h.level));
+    return '<button class="toc-item lv'+lv+'" data-id="'+h.id+'" data-idx="'+idx+'">'
+      + esc(h.text) + "</button>";
+  }).join("");
+
+  box.querySelectorAll(".toc-item").forEach(btn => {
+    btn.addEventListener("click", () => jumpTo(btn));
+  });
+}
+
+/* 统一的滚动定位：距离远就直接跳，近了才做平滑动画 */
+function scrollToPos(scroller, top){
+  if(!scroller) return;
+  top = Math.max(0, top);
+  const dist = Math.abs(top - scroller.scrollTop);
+
+  if(dist > 2600){
+    // 注意：CSS 的 scroll-behavior:smooth 会让 behavior:"auto" 也变成动画，
+    // 想真正「瞬间到位」必须临时把 scroll-behavior 改掉。
+    const prev = scroller.style.scrollBehavior;
+    scroller.style.scrollBehavior = "auto";
+    scroller.scrollTo({ top, behavior: "auto" });
+    scroller.style.scrollBehavior = prev || "";
+  }else{
+    scroller.scrollTo({ top, behavior: "smooth" });
+  }
+}
+
+function jumpTo(btn){
+  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  const el = host.querySelector("#" + btn.dataset.id);
+  if(!el) return;
+  if(state.mode === "edit"){
+    const pane = host.closest(".pane");
+    if(pane) scrollToPos(pane,
+      pane.scrollTop + el.getBoundingClientRect().top - pane.getBoundingClientRect().top - 18);
+  }else{
+    const main = $("#main");
+    scrollToPos(main,
+      main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 14);
+  }
+  setActiveToc(btn);
+}
+
+function setActiveToc(btn){
+  $$("#toc .toc-item").forEach(b => b.classList.toggle("active", b === btn));
+}
+
+function updateStats(){
+  const lines = state.content ? state.content.split("\n").length : 0;
+  $("#stChars").textContent = fmt(state.charCount) + " 字";
+  $("#stLines").textContent = fmt(lines) + " 行";
+  $("#stMode").textContent = state.mode === "edit" ? "编辑模式" : "阅读模式";
+  $("#fileName").textContent = state.fileName || "未打开文件";
+  $("#dirtyDot").classList.toggle("on", state.dirty);
+  $("#stSave").textContent = state.handle
+    ? (state.dirty ? "未保存" : "已保存到磁盘")
+    : (state.fileName ? (state.dirty ? "未保存" : "内存中") : "—");
+  document.body.classList.toggle("has-doc", !!(state.content || state.fileName));
+  updateFileListActive();
+}
+
+/* =====================================================================
+   5. 阅读进度
+   ===================================================================== */
+function updateProgress(){
+  const main = $("#main");
+  const max = main.scrollHeight - main.clientHeight;
+  const p = max > 0 ? Math.min(100, Math.max(0, main.scrollTop / max * 100)) : 0;
+  $("#progressBar").style.width = p.toFixed(2) + "%";
+  $("#stProgress").textContent = p.toFixed(0) + "%";
+
+  const heads = $$("#reader .chap, #reader h1, #reader h2, #reader h3");
+  if(heads.length){
+    const origin = main.getBoundingClientRect().top + 110;
+    let cur = null;
+    for(const h of heads){
+      if(h.getBoundingClientRect().top <= origin) cur = h; else break;
+    }
+    if(cur){
+      const btn = document.querySelector('#toc .toc-item[data-id="'+cur.id+'"]');
+      if(btn && !btn.classList.contains("active")) setActiveToc(btn);
+    }
+  }
+
+  // 同步高亮当前所在的字数段
+  const els = state.wmEls;
+  if(els && els.length && state.mode !== "edit"){
+    const wmOrigin = main.getBoundingClientRect().top + 56;
+    let cur = null;
+    for(let i = 0; i < els.length; i++){
+      const box = (state.wmLines && state.wmLines[i]) || els[i];
+      if(box.getBoundingClientRect().top <= wmOrigin) cur = els[i]; else break;
+    }
+    const key = cur ? String(cur.dataset.n) : "";
+    if(key !== state.wmActive){
+      state.wmActive = key;
+      const btn = key ? document.querySelector('#wmList .wm-item[data-n="'+key+'"]') : null;
+      setActiveWm(btn);
+    }
+    // 用户自己滚走了，就不再拿上次跳转的位置去同步源码
+    if(state.lastJumpN && state.wmActive && state.wmActive !== String(state.lastJumpN)
+       && Date.now() - state.lastJumpAt > 1500){
+      state.lastJumpN = 0;
+    }
+  }
+}
+
+/* =====================================================================
+   6. 选中字数
+   ===================================================================== */
+let selTimer = null;
+
+// 指针位置 / 是否正在拖选：拖选时浮标不挡鼠标；编辑区里浮标贴在鼠标松开的位置
+let pointerDown = false;
+let lastPointer = {x:0, y:0};
+let lastPointerAt = 0;
+document.addEventListener("mousemove", e => { lastPointer.x = e.clientX; lastPointer.y = e.clientY; }, {passive:true});
+document.addEventListener("mousedown", () => { pointerDown = true; lastPointerAt = Date.now(); }, true);
+document.addEventListener("mouseup", () => { pointerDown = false; lastPointerAt = Date.now(); }, true);
+
+function showSelPop(chars, rect, text){
+  const pop = $("#selPop");
+  $("#selPopNum").textContent = fmt(chars);
+  state.selText = text || "";
+  state.selChars = chars;
+  pop.classList.toggle("dragging", pointerDown);
+  pop.classList.add("show");
+  const w = pop.offsetWidth;
+  let left = rect.left + (rect.width || 0) / 2;
+  left = Math.max(w/2 + 8, Math.min(window.innerWidth - w/2 - 8, left));
+  let top = (rect.bottom || rect.top || 0) + 8;
+  if(top + 34 > window.innerHeight) top = (rect.top || 0) - 34;
+  pop.style.left = left + "px";
+  pop.style.top = Math.max(6, top) + "px";
+}
+function hideSelPop(){
+  $("#selPop").classList.remove("show");
+}
+
+function onSelectionChange(){
+  const editor = $("#editor");
+  const inEditor = state.mode === "edit" && document.activeElement === editor;
+  const ed = editor;
+
+  // 编辑态：textarea 选区 → 状态栏 + 鼠标旁浮标（可复制）
+  if(inEditor && ed.selectionStart !== ed.selectionEnd){
+    const t = ed.value.slice(ed.selectionStart, ed.selectionEnd);
+    const c = t.replace(/\s/g, "").length;
+    setStatusSel(c);
+    state.selText = t;
+    state.selChars = c;
+    const fresh = Date.now() - lastPointerAt < 1500;
+    if(settings.selCount && !pointerDown && fresh && lastPointer.x){
+      showSelPop(c, { left:lastPointer.x, width:0, top:lastPointer.y, bottom:lastPointer.y }, t);
+    }else{
+      hideSelPop();
+    }
+    return;
+  }
+  if(!inEditor) setStatusSel(0);
+
+  if(!settings.selCount){ hideSelPop(); return; }
+
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
+
+  const range = sel.getRangeAt(0);
+  const host = state.mode === "edit" ? $("#preview") : $("#reader");
+  if(!host || !host.contains(range.commonAncestorContainer)){ hideSelPop(); return; }
+
+  const raw = sel.toString();
+  const chars = raw.replace(/\s/g, "").length;
+  if(chars < 1){ hideSelPop(); return; }
+
+  setStatusSel(chars);
+
+  const rects = range.getClientRects();
+  const last = rects.length ? rects[rects.length - 1] : range.getBoundingClientRect();
+  if(!last || (!last.width && !last.height)){ hideSelPop(); return; }
+  showSelPop(chars, last, raw);
+}
+
+function setStatusSel(n){
+  const el = $("#stSel");
+  if(n > 0){
+    el.textContent = "已选 " + fmt(n) + " 字";
+    el.classList.remove("hide");
+  }else{
+    el.classList.add("hide");
+  }
+}
+
+/* =====================================================================
+   7. 草稿
+   ===================================================================== */
+let draftTimer = null;
+function saveDraft(){
+  clearTimeout(draftTimer);
+  if(!state.content){ clearDraft(); return; }
+  if(!state.dirty) return;
+  draftTimer = setTimeout(() => {
+    try{
+      localStorage.setItem(LS_DRAFT, JSON.stringify({
+        name: state.fileName, path: state.project.currentPath,
+        content: state.content, ts: Date.now()
+      }));
+    }catch(e){}
+  }, 700);
+}
+function clearDraft(){
+  clearTimeout(draftTimer);
+  try{ localStorage.removeItem(LS_DRAFT); }catch(e){}
+}
+function restoreDraft(){
+  try{
+    const raw = localStorage.getItem(LS_DRAFT);
+    if(!raw) return false;
+    const d = JSON.parse(raw);
+    if(!d || !d.content) return false;
+    loadContent(d.content, d.name || "草稿.md", null);
+    state.dirty = true;
+    updateStats();
+    toast("已恢复上次未保存的内容", 2600);
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================================
+   8. 文件 / 文件夹
+   ===================================================================== */
+const fileInput = $("#fileInput");
+const dirInput  = $("#dirInput");
+const MD_RE = /\.(md|markdown|mdtxt|txt)$/i;
+
+/* ---------- 桌面版原生文件系统适配 ----------
+   在 Electron 里 window.nativeFS 存在，此时用本地路径直接读写磁盘，
+   把浏览器需要的「授权句柄」替换成轻量代理对象，其余逻辑完全复用。 */
+const NATIVE = (typeof window !== "undefined" && window.nativeFS && window.nativeFS.available)
+  ? window.nativeFS : null;
+const IS_DESKTOP = !!NATIVE;
+
+function vFile(full, name){
+  return {
+    __native: full, kind: "file", name: name,
+    getFile: async () => ({ name: name, size: 0, text: async () => await NATIVE.readFile(full) }),
+    createWritable: async () => ({
+      write: async (t) => { await NATIVE.writeFile(full, t); },
+      close: async () => {},
+      abort: async () => {}
+    }),
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted"
+  };
+}
+
+function vDir(root, name){
+  return {
+    __native: root, kind: "directory", name: name,
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    entries: async function*(){}   // 目录枚举走 scanDir 的原生分支
+  };
+}
+
+function baseName(p){
+  return String(p || "").split(/[\\/]/).pop() || "未命名.md";
+}
+
+function confirmDiscard(){
+  // 保留接口（已改为自动保存，不再弹确认框，避免沙箱环境拦截 modal）
+  return true;
+}
+
+// 切换文件前：能写盘就静默保存，不能写盘则暂存草稿
+async function beforeSwitch(){
+  if(!state.dirty || !state.content) return true;
+  if(state.handle){
+    try{
+      const perm = await state.handle.queryPermission({mode:"readwrite"});
+      if(perm === "granted"){
+        const w = await state.handle.createWritable();
+        await w.write(state.content);
+        await w.close();
+        state.dirty = false;
+        updateStats();
+        clearDraft();
+        toast("已自动保存 " + state.fileName, 1600);
+        return true;
+      }
+    }catch(e){}
+  }
+  try{
+    localStorage.setItem(LS_DRAFT, JSON.stringify({
+      name: state.fileName, path: state.project.currentPath,
+      content: state.content, ts: Date.now()
+    }));
+  }catch(e){}
+  toast("「" + (state.fileName || "未命名") + "」的修改未能写回磁盘，已暂存为草稿", 2800);
+  return true;
+}
+
+function loadContent(text, name, handle){
+  state.content = text || "";
+  state.fileName = name || "未命名.md";
+  state.handle = handle || null;
+  state.dirty = false;
+  state.srcIdx = null;
+  state.lastJumpN = 0;
+  $("#editor").value = state.content;
+  renderAll();
+  $("#main").scrollTop = 0;
+  updateStats();
+  updateProgress();
+  setMode(state.content ? "read" : "edit");
+  document.title = (name ? name + " — " : "") + "Markdown 小说阅读器";
+  saveDraft();
+}
+
+async function openFile(){
+  if(!(await beforeSwitch())) return;
+
+  if(NATIVE){
+    try{
+      const r = await NATIVE.openFile();
+      if(!r) return;
+      loadContent(r.content, r.name, vFile(r.path, r.name));
+      clearProjectSelection();
+      toast("已打开 " + r.name);
+      return;
+    }catch(err){
+      toast("打开失败：" + (err.message || err.name), 2600);
+      return;
+    }
+  }
+
+  if(window.showOpenFilePicker){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types:[{
+          description:"Markdown / 文本",
+          accept:{"text/markdown":[".md",".markdown",".mdtxt"],"text/plain":[".txt"]}
+        }],
+        multiple:false
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      loadContent(text, file.name, handle);
+      clearProjectSelection();
+      toast("已打开 " + file.name);
+      return;
+    }catch(err){
+      if(err && err.name === "AbortError") return;
+    }
+  }
+  fileInput.click();
+}
+
+fileInput.addEventListener("change", async () => {
+  const f = fileInput.files && fileInput.files[0];
+  if(!f) return;
+  const text = await f.text();
+  loadContent(text, f.name, null);
+  clearProjectSelection();
+  toast("已打开 " + f.name + "（保存时将下载副本）", 2600);
+  fileInput.value = "";
+});
+
+/* ---------- 文件夹项目 ---------- */
+async function pickFolder(){
+  if(!(await beforeSwitch())) return;
+
+  if(NATIVE){
+    try{
+      const r = await NATIVE.openFolder();
+      if(!r) return;
+      await loadProject(vDir(r.root, r.name), null);
+      return;
+    }catch(err){
+      toast("打开文件夹失败：" + (err.message || err.name), 2600);
+      return;
+    }
+  }
+
+  if(window.showDirectoryPicker){
+    try{
+      const handle = await window.showDirectoryPicker({mode:"readwrite", id:"mdnr-project"});
+      const perm = await verifyPermission(handle, true);
+      if(!perm){ toast("没有获得文件夹权限"); return; }
+      await loadProject(handle, null);
+      return;
+    }catch(err){
+      if(err && err.name === "AbortError") return;
+      toast("当前环境不支持直接读写文件夹，已切换为只读方式打开", 2600);
+    }
+  }
+  // 降级：webkitdirectory（只读，无法写回）
+  dirInput.click();
+}
+
+dirInput.addEventListener("change", async () => {
+  const files = Array.from(dirInput.files || []);
+  if(!files.length) return;
+  const list = files.filter(f => MD_RE.test(f.name));
+  if(!list.length){ toast("这个文件夹里没有 Markdown 文件"); dirInput.value = ""; return; }
+
+  const root = (files[0].webkitRelativePath || "").split("/")[0] || "项目";
+  const items = list.map(f => ({
+    path: f.webkitRelativePath || f.name,
+    name: f.name,
+    file: f
+  })).sort((a,b) => a.path.localeCompare(b.path, "zh", {numeric:true}));
+
+  // 浏览器只读模式下没有句柄，状态按项目名存在 localStorage 里
+  const known = new Set(items.map(f => f.path));
+  const status = {};
+  try{
+    const raw = JSON.parse(localStorage.getItem("mdnr-status:" + root) || "{}");
+    for(const k of Object.keys(raw)) if(raw[k] && known.has(k)) status[k] = 1;
+  }catch(e){}
+
+  state.fileFilterStatus = "all";
+  state.project = {handle:null, name:root, files:items, currentPath:"", fromFiles:true, collapsed:new Set(), status};
+  onProjectReady();
+  toast("已载入「" + root + "」共 " + items.length + " 个文件（只读，保存时下载副本）", 3000);
+  dirInput.value = "";
+});
+
+async function verifyPermission(handle, request){
+  const opts = {mode:"readwrite"};
+  if(await handle.queryPermission(opts) === "granted") return true;
+  if(!request) return false;
+  return await handle.requestPermission(opts) === "granted";
+}
+
+async function scanDir(dir, prefix){
+  prefix = prefix || "";
+
+  if(NATIVE && dir && dir.__native){
+    const list = await NATIVE.listDir(dir.__native);
+    return (list || []).map(f => ({ path: f.path, name: f.name, handle: vFile(f.full, f.name) }));
+  }
+
+  const out = [];
+  for await (const [name, handle] of dir.entries()){
+    if(name.startsWith(".")) continue;
+    if(handle.kind === "directory"){
+      if(name === "node_modules" || name === ".git") continue;
+      const sub = await scanDir(handle, prefix + name + "/");
+      for(const s of sub) out.push(s);
+    }else if(MD_RE.test(name)){
+      out.push({path: prefix + name, name, handle});
+    }
+  }
+  return out;
+}
+
+async function loadProject(handle, savedPath, skipOpen, collapsedList, statusList){
+  toast("正在扫描文件夹…", 1200);
+  let files = [];
+  try{ files = await scanDir(handle); }catch(e){ files = []; }
+
+  files.sort((a,b) => a.path.localeCompare(b.path, "zh", {numeric:true}));
+
+  // 只保留仍然存在的文件的状态，目录里删掉/改名的自动丢弃
+  const known = new Set(files.map(f => f.path));
+  const status = {};
+  if(statusList && typeof statusList === "object"){
+    for(const k of Object.keys(statusList)){
+      if(statusList[k] && known.has(k)) status[k] = 1;
+    }
+  }
+
+  state.fileFilterStatus = "all";
+  state.project = {
+    handle, name:handle.name, files, currentPath:"", fromFiles:false,
+    collapsed:new Set(Array.isArray(collapsedList) ? collapsedList : []),
+    status
+  };
+  await persistProject();
+  onProjectReady();
+
+  if(!files.length){
+    toast("「" + handle.name + "」里没有找到 Markdown 文件", 2600);
+    return;
+  }
+
+  // 有未保存草稿时，只登记项目、不覆盖当前内容
+  if(skipOpen){
+    const keep = savedPath && files.some(f => f.path === savedPath) ? savedPath : "";
+    if(keep){ state.project.currentPath = keep; renderFileList(); }
+    toast("已恢复项目「" + handle.name + "」，共 " + files.length + " 个文件", 2600);
+    return;
+  }
+
+  const target = savedPath ? files.find(f => f.path === savedPath) : null;
+  await openProjectFile(target || files[0], true);
+  toast("已打开项目「" + handle.name + "」，共 " + files.length + " 个文件", 2600);
+}
+
+function onProjectReady(){
+  const has = state.project.files.length > 0 || state.project.handle || state.project.name;
+  $("#sbTabs").classList.toggle("hide", !has);
+  $("#sbProject").style.display = has ? "" : "none";
+  $("#sbRefresh").style.display = state.project.handle ? "" : "none";
+  $("#projectName").textContent = state.project.name || "";
+  $("#sbTitle").style.display = has ? "none" : "";
+  $("#fileFilter").style.display = state.project.files.length > 8 ? "" : "none";
+  $("#fileFilter").value = "";
+  renderFileList();
+  switchTab("files");
+}
+
+function clearProjectSelection(){
+  if(state.project.files.length){
+    state.project.currentPath = "";
+    renderFileList();
+  }
+}
+
+/* ---------- 项目文件树 ---------- */
+const TREE_INDENT = 13;   // 每层缩进
+const TREE_BASE = 8;      // 顶层左内边距
+
+// 中文序数参与排序：第二卷 > 第一卷、第十章 > 第二章
+const CN_DIGIT = {零:0, 〇:0, 一:1, 二:2, 两:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9};
+function cnToInt(s){
+  let total = 0, section = 0, num = 0;
+  for(const ch of s){
+    if(ch in CN_DIGIT){ num = CN_DIGIT[ch]; continue; }
+    if(ch === "十"){ section += (num || 1) * 10; num = 0; }
+    else if(ch === "百"){ section += (num || 1) * 100; num = 0; }
+    else if(ch === "千"){ section += (num || 1) * 1000; num = 0; }
+    else if(ch === "万"){ total += (section + num) * 10000; section = 0; num = 0; }
+    else return NaN;
+  }
+  return total + section + num;
+}
+function nameKey(s){
+  return String(s || "").replace(/(第)([零〇一二两三四五六七八九十百千万]+)|([零〇一二两三四五六七八九十百千万]+)(?=卷|章|回|节|部|篇|集|册|话)/g,
+    (m, di, a, b) => {
+      const digits = a || b;
+      const n = cnToInt(digits);
+      if(!Number.isFinite(n)) return m;
+      const padded = String(n).padStart(6, "0");
+      return di ? di + padded : padded;
+    });
+}
+const cmpName = (a, b) =>
+  nameKey(a).localeCompare(nameKey(b), "zh", {numeric:true}) || a.localeCompare(b, "zh", {numeric:true});
+
+// 层级缩进（超深目录封顶，避免名字被挤出侧栏）
+const padFor = depth => TREE_BASE + Math.min(depth, 6) * TREE_INDENT;
+
+// 用浏览器的 webkitdirectory 载入时，path 带一层根目录名，显示时剥掉
+function stripRoot(p){
+  p = p || "";
+  const root = state.project.name;
+  if(state.project.fromFiles && root && p.startsWith(root + "/")) return p.slice(root.length + 1);
+  return p;
+}
+
+function treeInsert(tree, rel, item){
+  const parts = rel.split("/");
+  parts.pop();
+  let node = tree, acc = "";
+  for(const p of parts){
+    acc = acc ? acc + "/" + p : p;
+    if(!node.dirs.has(p)) node.dirs.set(p, {name:p, path:acc, dirs:new Map(), files:[]});
+    node = node.dirs.get(p);
+  }
+  node.files.push(item);
+}
+
+function markCount(node){
+  let n = node.files.length;
+  for(const d of node.dirs.values()) n += markCount(d);
+  node.count = n;
+  return n;
+}
+
+function expandToPath(p){
+  const collapsed = state.project.collapsed;
+  if(!collapsed || !collapsed.size) return;
+  const parts = stripRoot(p).split("/");
+  parts.pop();
+  let acc = "";
+  for(const s of parts){ acc = acc ? acc + "/" + s : s; collapsed.delete(acc); }
+}
+
+/* ---------- 每个文件的写作状态：草稿 / 已修订 ---------- */
+function statusMap(){
+  if(!state.project.status || typeof state.project.status !== "object") state.project.status = {};
+  return state.project.status;
+}
+function isRevised(path){ return statusMap()[path] === 1; }
+function statusCounts(){
+  const files = state.project.files || [];
+  let rev = 0;
+  for(const f of files) if(isRevised(f.path)) rev++;
+  return {all: files.length, revised: rev, draft: files.length - rev};
+}
+
+function updateStatBar(){
+  const bar = $("#statBar");
+  if(!bar) return;
+  const show = (state.project.files || []).length > 0;
+  bar.classList.toggle("hide", !show);
+  if(show){
+    const c = statusCounts();
+    $("#stAll").textContent = c.all;
+    $("#stDraft").textContent = c.draft;
+    $("#stRev").textContent = c.revised;
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.st === (state.fileFilterStatus || "all")));
+  }
+  updateStatPill();
+}
+
+function updateStatPill(){
+  const pill = $("#statPill");
+  if(!pill) return;
+  const path = state.project.currentPath;
+  if(!path){ pill.classList.add("hide"); return; }
+  const rev = isRevised(path);
+  pill.classList.remove("hide");
+  pill.classList.toggle("rev", rev);
+  pill.textContent = rev ? "已修订" : "草稿";
+  pill.title = (rev ? "已修订 · 点击改回草稿" : "草稿 · 点击标记为已修订") + "（Ctrl+Shift+D）";
+}
+
+function fileNameOf(path){
+  const f = (state.project.files || []).find(x => x.path === path);
+  return ((f && f.name) || String(path).split("/").pop() || "").replace(MD_RE, "");
+}
+
+async function setFileStatus(path, revised, opts){
+  path = path || state.project.currentPath;
+  if(!path){ toast("还没有打开文件"); return; }
+  const m = statusMap();
+  if(revised) m[path] = 1; else delete m[path];
+
+  renderFileList();
+  updateStatPill();
+  await persistProject();
+  if(!(opts && opts.silent)){
+    toast("「" + fileNameOf(path) + "」标记为" + (revised ? "已修订" : "草稿"), 1500);
+  }
+}
+
+function toggleFileStatus(path){
+  const p = path || state.project.currentPath;
+  if(!p){ toast("还没有打开文件"); return; }
+  setFileStatus(p, !isRevised(p));
+}
+
+function renderFileList(){
+  const box = $("#fileList");
+  const files = state.project.files;
+  if(!files.length){
+    box.innerHTML = '<div class="toc-empty">还没有项目。点顶栏「文件夹」选择一个目录，之后会自动记住它。</div>';
+    updateStatBar();
+    return;
+  }
+
+  const q = ($("#fileFilter").value || "").trim().toLowerCase();
+  const st = state.fileFilterStatus || "all";
+  const list = files.filter(f => {
+    if(st !== "all" && (isRevised(f.path) ? "revised" : "draft") !== st) return false;
+    return q ? f.path.toLowerCase().includes(q) : true;
+  });
+  if(!list.length){
+    box.innerHTML = '<div class="toc-empty">'
+      + (st === "revised" ? "还没有标记为「已修订」的文件" : st === "draft" ? "没有剩下草稿了" : "没有匹配的文件")
+      + '</div>';
+    updateStatBar();
+    return;
+  }
+
+  if(!state.project.collapsed) state.project.collapsed = new Set();
+  const collapsed = state.project.collapsed;
+  const activePath = state.project.currentPath;
+  const activeDir = stripRoot(activePath).includes("/")
+    ? stripRoot(activePath).slice(0, stripRoot(activePath).lastIndexOf("/")) : "";
+  const activeDirs = new Set();
+  if(activeDir){
+    let acc = "";
+    for(const p of activeDir.split("/")){ acc = acc ? acc + "/" + p : p; activeDirs.add(acc); }
+  }
+
+  const tree = {dirs:new Map(), files:[]};
+  for(const f of list) treeInsert(tree, stripRoot(f.path || f.name), f);
+  markCount(tree);
+
+  const out = [];
+  (function walk(node, depth){
+    const dirs = [...node.dirs.values()].sort((a,b) => cmpName(a.name, b.name));
+    for(const d of dirs){
+      const open = q ? true : !collapsed.has(d.path);   // 过滤时全部展开
+      out.push(
+        '<button class="dir-item' + (open ? " open" : "") + (activeDirs.has(d.path) ? " has-active" : "") + '"'
+        + ' data-dir="' + esc(d.path) + '" title="' + esc(d.path) + '"'
+        + ' style="padding-left:' + padFor(depth) + 'px">'
+        + '<svg class="farrow" viewBox="0 0 10 10" aria-hidden="true">'
+        + '<path d="M3 1.4 L6.7 5 L3 8.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '</svg>'
+        + '<span class="dname">' + esc(d.name) + '</span>'
+        + '<span class="dcount">' + d.count + '</span>'
+        + '</button>'
+      );
+      if(open) walk(d, depth + 1);
+    }
+    const fs = node.files.slice().sort((a,b) => cmpName(a.name, b.name));
+    for(const f of fs){
+      const active = f.path === activePath;
+      const rev = isRevised(f.path);
+      out.push(
+        '<button class="file-item' + (active ? " active" : "") + '" data-path="' + esc(f.path) + '"'
+        + ' title="' + esc(stripRoot(f.path)) + '"'
+        + ' style="padding-left:' + (padFor(depth) + 14) + 'px">'
+        + '<span class="fname">' + esc(f.name.replace(MD_RE, "")) + '</span>'
+        + '<span class="fstat' + (rev ? " rev" : "") + '" data-path="' + esc(f.path) + '"'
+        + ' title="' + (rev ? "已修订 · 点击改回草稿" : "草稿 · 点击标记为已修订") + '">'
+        + (rev ? "已修订" : "草稿") + '</span>'
+        + '</button>'
+      );
+    }
+  })(tree, 0);
+
+  box.innerHTML = out.join("");
+
+  // 事件委托：目录折叠 / 状态切换 / 文件打开
+  box.onclick = (e) => {
+    const chip = e.target.closest(".fstat");
+    if(chip){
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFileStatus(chip.dataset.path);
+      return;
+    }
+    const dirBtn = e.target.closest(".dir-item");
+    if(dirBtn){
+      const p = dirBtn.dataset.dir;
+      if(collapsed.has(p)) collapsed.delete(p); else collapsed.add(p);
+      const top = box.scrollTop;
+      renderFileList();
+      box.scrollTop = top;
+      saveCollapsed();
+      return;
+    }
+    const fileBtn = e.target.closest(".file-item");
+    if(fileBtn){
+      const item = state.project.files.find(f => f.path === fileBtn.dataset.path);
+      if(item) openProjectFile(item);
+    }
+  };
+
+  updateStatBar();
+}
+
+function updateFileListActive(){
+  $$("#fileList .file-item").forEach(b => {
+    b.classList.toggle("active", b.dataset.path === state.project.currentPath);
+  });
+}
+
+async function openProjectFile(item, silent){
+  if(!silent && !(await beforeSwitch())) return;
+  try{
+    let text = "";
+    if(item.handle){
+      const f = await item.handle.getFile();
+      text = await f.text();
+    }else if(item.file){
+      text = await item.file.text();
+    }
+    state.project.currentPath = item.path;
+    loadContent(text, item.name, item.handle || null);
+    expandToPath(item.path);   // 自动展开所在目录
+    renderFileList();
+    await persistProject();
+    switchTab("files");
+    if(!silent) toast("已打开 " + item.name);
+  }catch(e){
+    toast("读取失败：" + (e.message || e.name), 2600);
+  }
+}
+
+async function persistProject(){
+  const folded = state.project.collapsed ? Array.from(state.project.collapsed) : [];
+  const status = { ...statusMap() };
+
+  if(!state.project.handle){
+    // 纯浏览器（webkitdirectory，无句柄）没法写回磁盘，状态按项目名存 localStorage
+    if(state.project.name){
+      try{ localStorage.setItem("mdnr-status:" + state.project.name, JSON.stringify(status)); }catch(e){}
+    }
+    return;
+  }
+
+  if(NATIVE){
+    try{
+      await NATIVE.setProject({
+        root: state.project.handle.__native || "",
+        name: state.project.name,
+        currentPath: state.project.currentPath,
+        collapsed: folded,
+        status,
+        ts: Date.now()
+      });
+    }catch(e){}
+    return;
+  }
+
+  try{
+    await idbSet(IDB_PROJECT, {
+      handle: state.project.handle,
+      name: state.project.name,
+      currentPath: state.project.currentPath,
+      collapsed: folded,
+      status,
+      ts: Date.now()
+    });
+  }catch(e){}
+}
+
+// 折叠状态变更后延迟落盘，避免频繁写
+let collapseSaveTimer = null;
+function saveCollapsed(){
+  clearTimeout(collapseSaveTimer);
+  collapseSaveTimer = setTimeout(() => { persistProject(); }, 500);
+}
+
+async function restoreProject(skipOpen){
+  if(NATIVE){
+    let saved = null;
+    try{ saved = await NATIVE.getProject(); }catch(e){ return; }
+    if(!saved || !saved.root) return;
+    let ok = false;
+    try{ ok = await NATIVE.isDir(saved.root); }catch(e){ ok = false; }
+    if(!ok) return;
+    await loadProject(vDir(saved.root, saved.name), saved.currentPath, skipOpen, saved.collapsed, saved.status);
+    return;
+  }
+
+  let saved = null;
+  try{ saved = await idbGet(IDB_PROJECT); }catch(e){ return; }
+  if(!saved || !saved.handle) return;
+
+  let perm = "prompt";
+  try{ perm = await saved.handle.queryPermission({mode:"readwrite"}); }catch(e){ return; }
+
+  if(perm === "granted"){
+    await loadProject(saved.handle, saved.currentPath, skipOpen, saved.collapsed, saved.status);
+  }else{
+    state.pending = saved;
+    const btn = $("#btnResume");
+    btn.style.display = "";
+    btn.textContent = "继续《" + saved.name + "》";
+    btn.title = "上次打开的项目需要重新授权";
+    btn.classList.add("accent");
+  }
+}
+
+async function resumeProject(){
+  const saved = state.pending;
+  if(!saved) return;
+  try{
+    const ok = await verifyPermission(saved.handle, true);
+    if(!ok){ toast("授权未通过"); return; }
+    $("#btnResume").style.display = "none";
+    state.pending = null;
+    await loadProject(saved.handle, saved.currentPath, false, saved.collapsed, saved.status);
+  }catch(e){
+    toast("恢复失败：" + (e.message || e.name), 2600);
+  }
+}
+
+async function refreshProject(){
+  if(!state.project.handle) return;
+  const ok = await verifyPermission(state.project.handle, true);
+  if(!ok){ toast("没有权限"); return; }
+  const cur = state.project.currentPath;
+  const files = (await scanDir(state.project.handle))
+    .sort((a,b) => a.path.localeCompare(b.path, "zh", {numeric:true}));
+  state.project.files = files;
+  renderFileList();
+  toast("已重新扫描，共 " + files.length + " 个文件");
+  if(cur && !files.some(f => f.path === cur)) toast("当前文件已不在文件夹中", 2600);
+}
+
+function switchTab(tab){
+  if(!state.project.files.length && tab === "files") tab = "toc";
+  $$("#sbTabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  $("#paneFiles").classList.toggle("hide", tab !== "files");
+  $("#paneToc").classList.toggle("hide", tab !== "toc");
+}
+
+/* ---------- 复制全文 ---------- */
+async function writeClipboard(text){
+  let ok = false;
+  // 桌面版：交给主进程写系统剪贴板，最稳
+  if(NATIVE && NATIVE.copyText){
+    try{ ok = await NATIVE.copyText(text); }catch(e){ ok = false; }
+  }
+  if(!ok){
+    try{
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }catch(e){
+      // 兜底：临时 textarea + execCommand（个别环境不让用 clipboard API）
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.select();
+      try{ ok = document.execCommand("copy"); }catch(_){ ok = false; }
+      ta.remove();
+    }
+  }
+  return ok;
+}
+
+async function copyAll(){
+  const text = state.content || "";
+  if(!text.trim()){ toast("还没有内容可复制"); return; }
+  const ok = await writeClipboard(text);
+  if(ok) toast("已复制全文 · " + fmt(state.charCount || 0) + " 字", 2200);
+  else toast("复制失败，请手动全选复制", 2600);
+}
+
+/* 复制当前选中的文字（阅读态与编辑态都支持） */
+let copyBtnTimer = null;
+async function copySelection(){
+  let text = state.selText || "";
+  // 兜底：如果缓存丢了，现取一次当前选区
+  if(!text.trim()){
+    const sel = window.getSelection();
+    const edEl = $("#editor");
+    if(state.mode === "edit" && document.activeElement === edEl && edEl.selectionStart !== edEl.selectionEnd){
+      text = edEl.value.slice(edEl.selectionStart, edEl.selectionEnd);
+    }else if(sel && !sel.isCollapsed){
+      text = sel.toString();
+    }
+  }
+  if(!text.trim()){ toast("没有选中文字"); return; }
+
+  const ok = await writeClipboard(text);
+  if(!ok){ toast("复制失败，请按 Ctrl+C", 2400); return; }
+
+  const n = text.replace(/\s/g, "").length;
+  toast("已复制选中 · " + fmt(n) + " 字", 1800);
+  const btn = $("#selCopy");
+  if(btn){
+    btn.textContent = "已复制";
+    btn.classList.add("done");
+    clearTimeout(copyBtnTimer);
+    copyBtnTimer = setTimeout(() => { btn.textContent = "复制"; btn.classList.remove("done"); }, 1100);
+  }
+}
+
+/* ---------- 保存 ---------- */
+async function saveFile(asNew){
+  if(!state.fileName && !state.content){ toast("还没有内容可保存"); return; }
+
+  if(asNew && NATIVE){
+    try{
+      const r = await NATIVE.saveAs(state.fileName || "novel.md", state.content);
+      if(!r) return;
+      state.handle = vFile(r.path, r.name);
+      state.fileName = r.name;
+      state.dirty = false;
+      updateStats();
+      clearDraft();
+      syncProjectAfterSave(r.path);
+      document.title = r.name + " — Markdown 小说阅读器";
+      toast("已另存为 " + r.name);
+      return;
+    }catch(err){
+      toast("保存失败：" + (err.message || err.name), 2600);
+      return;
+    }
+  }
+
+  if(asNew && window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: state.fileName || "novel.md",
+        types:[{description:"Markdown", accept:{"text/markdown":[".md"]}}]
+      });
+      const w = await handle.createWritable();
+      await w.write(state.content);
+      await w.close();
+      state.handle = handle;
+      state.fileName = handle.name;
+      state.dirty = false;
+      updateStats();
+      toast("已另存为 " + handle.name);
+      return;
+    }catch(err){
+      if(err && err.name === "AbortError") return;
+    }
+  }
+
+  if(state.handle){
+    try{
+      let perm = await state.handle.queryPermission({mode:"readwrite"});
+      if(perm !== "granted") perm = await state.handle.requestPermission({mode:"readwrite"});
+      if(perm !== "granted"){ toast("没有写入权限，改为下载副本"); download(); return; }
+      const w = await state.handle.createWritable();
+      await w.write(state.content);
+      await w.close();
+      state.dirty = false;
+      updateStats();
+      toast("已保存到 " + state.fileName);
+      clearDraft();
+      return;
+    }catch(err){
+      toast("保存失败：" + (err.message || err.name), 2600);
+      return;
+    }
+  }
+
+  download();
+}
+
+async function syncProjectAfterSave(fullPath){
+  if(!NATIVE || !state.project.handle || !state.project.handle.__native) return;
+  const rootN = String(state.project.handle.__native).replace(/\\/g, "/").replace(/\/+$/, "");
+  const norm  = String(fullPath).replace(/\\/g, "/");
+  if(norm.toLowerCase().indexOf(rootN.toLowerCase() + "/") !== 0) return;
+  state.project.currentPath = norm.slice(rootN.length + 1);
+  try{
+    state.project.files = (await scanDir(state.project.handle))
+      .sort((a,b) => a.path.localeCompare(b.path, "zh", {numeric:true}));
+  }catch(e){}
+  renderFileList();
+  await persistProject();
+}
+
+function download(){
+  if(NATIVE){ saveFile(true); return; }
+  const name = state.fileName || "novel.md";
+  const blob = new Blob([state.content], {type:"text/markdown;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  state.dirty = false;
+  updateStats();
+  clearDraft();
+  toast("已下载 " + name, 2600);
+}
+
+/* =====================================================================
+   9. 模式切换
+   ===================================================================== */
+function setMode(mode){
+  const wasEdit = state.mode === "edit";
+  const main = $("#main");
+  const ratio = main.scrollHeight > main.clientHeight
+    ? main.scrollTop / (main.scrollHeight - main.clientHeight) : 0;
+
+  state.mode = mode;
+  document.body.classList.toggle("mode-edit", mode === "edit");
+  document.body.classList.toggle("mode-read", mode !== "edit");
+  $("#btnRead").classList.toggle("on", mode !== "edit");
+  $("#btnEdit").classList.toggle("on", mode === "edit");
+  hideSelPop();
+
+  // 两种模式正文宽度不同，标记挂左侧还是退回段末需要重算
+  layoutWmBadges(mode === "edit" ? $("#preview") : $("#reader"));
+
+  if(mode === "edit"){
+    const ed = $("#editor");
+    if(ed.value !== state.content) ed.value = state.content;
+    // 刚点过字数标记就切过来：直接落到同一处，而不是按滚动比例估算
+    const jumpN = state.lastJumpN || 0;
+    setTimeout(() => {
+      ed.focus();
+      if(jumpN && $("#preview .wm[data-n='"+jumpN+"']")){
+        jumpToMark(jumpN, null, true);
+      }else{
+        const max = ed.scrollHeight - ed.clientHeight;
+        if(max > 0) ed.scrollTop = Math.max(0, ratio * max);
+      }
+    }, 40);
+  }else if(wasEdit){
+    // 从源码切回阅读：同样回到同一处
+    const jumpN = state.lastJumpN || 0;
+    if(jumpN) setTimeout(() => { jumpToMark(jumpN, null, true); }, 40);
+  }
+  updateStats();
+}
+
+let previewTimer = null;
+function onEditorInput(){
+  state.content = $("#editor").value;
+  state.dirty = true;
+  state.srcIdx = null;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const res = MD.render(state.content);
+    state.headings = res.headings;
+    const preview = $("#preview");
+    preview.innerHTML = res.html;
+    markWords(preview);
+    const reader = $("#reader");
+    reader.innerHTML = res.html;
+    state.charCount = markWords(reader);
+    buildToc();
+    buildWmNav();
+    updateStats();
+    saveDraft();
+  }, 200);
+  saveDraft();
+}
+
+$("#editor").addEventListener("input", onEditorInput);
+
+/* 窗口宽度变化后，重新决定标记的位置形态 */
+let wmLayoutTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(wmLayoutTimer);
+  wmLayoutTimer = setTimeout(() => {
+    layoutWmBadges($("#reader"));
+    layoutWmBadges($("#preview"));
+  }, 160);
+});
+
+$("#editor").addEventListener("keydown", e => {
+  if(e.key === "Tab"){
+    e.preventDefault();
+    const ed = e.target;
+    const s = ed.selectionStart, en = ed.selectionEnd;
+    ed.value = ed.value.slice(0,s) + "  " + ed.value.slice(en);
+    ed.selectionStart = ed.selectionEnd = s + 2;
+    onEditorInput();
+  }
+});
+
+/* =====================================================================
+   10. 查找替换
+   ===================================================================== */
+function buildRegex(){
+  const q = $("#findInput").value;
+  if(!q) return null;
+  const flags = "g" + ($("#optCase").classList.contains("on") ? "" : "i");
+  if($("#optRegex").classList.contains("on")){
+    try{ return new RegExp(q, flags); }
+    catch(err){ return {error:err.message}; }
+  }
+  return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+}
+
+function refreshMatches(keepIndex){
+  const re = buildRegex();
+  state.matches = [];
+  if(!re){ $("#findCount").textContent = "—"; return null; }
+  if(re.error){ $("#findCount").textContent = "正则错误"; return null; }
+  const text = state.content;
+  let m;
+  re.lastIndex = 0;
+  while((m = re.exec(text)) !== null){
+    if(m[0] === ""){ re.lastIndex++; continue; }
+    state.matches.push({start:m.index, end:m.index + m[0].length});
+    if(state.matches.length > 20000) break;
+  }
+  if(!keepIndex || state.matchIndex >= state.matches.length) state.matchIndex = state.matches.length ? 0 : -1;
+  $("#findCount").textContent = state.matches.length ? (state.matchIndex+1) + " / " + state.matches.length : "无结果";
+  return state.matches.length;
+}
+
+function selectMatch(){
+  const ed = $("#editor");
+  const m = state.matches[state.matchIndex];
+  if(!m) return;
+  ed.focus();
+  ed.setSelectionRange(m.start, m.end);
+
+  const before = state.content.slice(0, m.start);
+  const lineNo = before.split("\n").length - 1;
+  const lh = parseFloat(getComputedStyle(ed).lineHeight) || 28;
+  ed.scrollTop = Math.max(0, lineNo * lh - ed.clientHeight / 2);
+
+  $("#findCount").textContent = (state.matchIndex+1) + " / " + state.matches.length;
+  setStatusSel((state.content.slice(m.start, m.end) || "").replace(/\s/g,"").length);
+}
+
+function findStep(dir){
+  if(!refreshMatches(true)) return;
+  if(!state.matches.length) return;
+  state.matchIndex = (state.matchIndex + dir + state.matches.length) % state.matches.length;
+  selectMatch();
+}
+
+function replaceOne(){
+  if(!refreshMatches(true)) return;
+  const m = state.matches[state.matchIndex];
+  if(!m){ toast("没有匹配项"); return; }
+  const rep = $("#replaceInput").value;
+  const isRegex = $("#optRegex").classList.contains("on");
+  let piece = rep;
+  if(isRegex){
+    const re = buildRegex();
+    const found = state.content.slice(m.start, m.end);
+    try{ piece = found.replace(new RegExp("^(?:"+re.source+")$", re.flags.replace("g","")), rep); }
+    catch(e){ piece = rep; }
+  }
+  state.content = state.content.slice(0, m.start) + piece + state.content.slice(m.end);
+  $("#editor").value = state.content;
+  state.dirty = true;
+  onEditorInput();
+  renderAll();
+  refreshMatches(false);
+  toast("已替换 1 处");
+}
+
+function replaceAll(){
+  if(!refreshMatches(false)) return;
+  if(!state.matches.length){ toast("没有匹配项"); return; }
+  const n = state.matches.length;
+  const re = buildRegex();
+  const rep = $("#replaceInput").value;
+  const isRegex = $("#optRegex").classList.contains("on");
+  state.content = isRegex ? state.content.replace(re, rep)
+                          : state.content.replace(re, () => rep);
+  $("#editor").value = state.content;
+  state.dirty = true;
+  onEditorInput();
+  renderAll();
+  refreshMatches(false);
+  toast("已替换 " + n + " 处");
+}
+
+function openFind(){
+  if(state.mode !== "edit") setMode("edit");
+  $("#replaceBar").classList.add("show");
+  const ed = $("#editor");
+  if(ed.selectionStart !== ed.selectionEnd){
+    const picked = state.content.slice(ed.selectionStart, ed.selectionEnd);
+    if(picked && picked.length < 60 && !picked.includes("\n")) $("#findInput").value = picked;
+  }
+  setTimeout(() => { $("#findInput").focus(); $("#findInput").select(); }, 60);
+  refreshMatches(false);
+}
+
+/* =====================================================================
+   11. 设置面板
+   ===================================================================== */
+function buildSwatches(){
+  const box = $("#swatches");
+  box.innerHTML = PRESETS.map((p,i) =>
+    '<button class="swatch" data-i="'+i+'" style="background:'+p.bg+';color:'+p.fg+
+    ';border-color:'+(lum(p.bg) < 0.45 ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.12)")+'">'+
+    '<span>'+p.name+'</span></button>'
+  ).join("");
+  box.querySelectorAll(".swatch").forEach(b => {
+    b.addEventListener("click", () => {
+      const p = PRESETS[+b.dataset.i];
+      settings.theme = {name:p.name, bg:p.bg, fg:p.fg, accent:p.accent};
+      syncThemeInputs();
+      applyTheme();
+      markSwatch();
+      saveSettings();
+    });
+  });
+}
+function markSwatch(){
+  const cur = settings.theme;
+  $$("#swatches .swatch").forEach((b,i) => {
+    const p = PRESETS[i];
+    b.classList.toggle("on", p.bg === cur.bg && p.fg === cur.fg);
+  });
+}
+function syncThemeInputs(){
+  $("#bgColor").value = settings.theme.bg;
+  $("#fgColor").value = settings.theme.fg;
+  $("#accentColor").value = settings.theme.accent;
+  $("#autoFg").checked = settings.autoFg;
+}
+
+function syncControls(){
+  $("#rFs").value = settings.fs;  $("#vFs").textContent = settings.fs + "px";
+  $("#rLh").value = settings.lh;  $("#vLh").textContent = settings.lh.toFixed(2);
+  $("#rLs").value = settings.ls;  $("#vLs").textContent = settings.ls.toFixed(2) + "em";
+  $("#rGap").value = settings.gap; $("#vGap").textContent = settings.gap.toFixed(1) + "em";
+  $("#rW").value = settings.w;    $("#vW").textContent = settings.w + "px";
+  $("#fontSel").value = settings.font;
+  $("#wmStep").value = String(settings.wmStep);
+  $("#optIndent").checked = settings.indent;
+  $("#optSoftbreak").checked = settings.softbreak;
+  $("#optChap").checked = settings.chapStyle;
+  $("#optSel").checked = settings.selCount;
+  syncThemeInputs();
+  markSwatch();
+  syncSkinControls();
+  renderSkinGrid();
+}
+
+/* =====================================================================
+   11.5 背景皮肤 + 本地配置
+   ===================================================================== */
+let skinCache = Object.create(null);   // skinId -> dataURL
+let profiles = [];
+
+function rgba(hex, a){
+  const {r,g,b} = hexToRgb(hex);
+  return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+}
+
+/* 把皮肤的当前状态画到页面上 */
+function applySkin(){
+  const b = settings.bg || DEFAULT_SETTINGS.bg;
+  const el = $("#bgSkin"), mask = $("#bgMask");
+  if(!el || !mask) return;
+  const url = (b.enabled && b.skinId) ? skinCache[b.skinId] : null;
+  const on = !!url;
+
+  // 面板/正文的半透明底色（跟随当前配色）
+  const base = settings.theme.bg;
+  const dark = lum(base) < 0.45;
+  const panel = mix(base, dark ? "#ffffff" : "#000000", dark ? 0.055 : 0.035);
+  const paper = mix(base, dark ? "#ffffff" : "#000000", 0.02);
+  const rs = document.documentElement.style;
+  rs.setProperty("--panel-t", rgba(panel, 0.80));
+  rs.setProperty("--bg-t",    rgba(base,  0.62));
+  rs.setProperty("--paper-t", rgba(paper, Math.min(0.97, (b.paper | 0) / 100)));
+
+  document.body.classList.toggle("skin-on", on);
+
+  if(on){
+    const size   = b.fit === "contain" ? "contain" : b.fit === "repeat" ? "auto" : "cover";
+    const repeat = b.fit === "repeat" ? "repeat" : "no-repeat";
+    el.style.backgroundImage = 'url("' + url + '")';
+    el.style.backgroundSize = size;
+    el.style.backgroundRepeat = repeat;
+    el.style.opacity = String(Math.max(0.05, Math.min(1, (b.opacity | 0) / 100)));
+    el.style.filter = b.blur ? "blur(" + (b.blur | 0) + "px)" : "none";
+    el.classList.add("on");
+  } else {
+    el.classList.remove("on");
+    el.style.backgroundImage = "none";
+  }
+  mask.style.opacity = String(on ? Math.min(0.95, Math.max(0, (b.dim | 0) / 100)) : 0);
+}
+
+async function ensureSkin(id){
+  if(!id) return null;
+  if(skinCache[id]) return skinCache[id];
+  try{
+    const d = await idbGet(SKIN_PREFIX + id);
+    if(d){ skinCache[id] = d; return d; }
+  }catch(e){}
+  return null;
+}
+
+function syncSkinControls(){
+  const b = settings.bg || DEFAULT_SETTINGS.bg;
+  const set = (id, v, label, fmtv) => {
+    const el = $(id); if(el) el.value = v;
+    const lb = $(label); if(lb) lb.textContent = fmtv;
+  };
+  set("#skinFit",  b.fit, "#vSkinFit", "");
+  set("#skinOp",   b.opacity, "#vSkinOp", (b.opacity | 0) + "%");
+  set("#skinBlur", b.blur, "#vSkinBlur", (b.blur | 0) + "px");
+  set("#skinDim",  b.dim, "#vSkinDim", (b.dim | 0) + "%");
+  set("#skinPaper",b.paper, "#vSkinPaper", (b.paper | 0) + "%");
+}
+
+function renderSkinGrid(){
+  const box = $("#skinGrid");
+  if(!box) return;
+  const list = settings.skins || [];
+  const cur = settings.bg || {};
+  box.innerHTML = list.map(s => {
+    const on = cur.enabled && cur.skinId === s.id;
+    return '<div class="skin-cell' + (on ? " on" : "") + '" data-id="' + s.id + '" title="' + esc(s.name) + '">' +
+      '<img alt="" data-src="' + s.id + '">' +
+      '<span class="sn">' + esc(s.name) + '</span>' +
+      '<button class="del" data-del="' + s.id + '" title="删除这张背景">×</button>' +
+    '</div>';
+  }).join("") +
+  '<button class="skin-add" id="skinAdd" title="上传一张图片作为背景"><span class="plus">＋</span><span>上传</span></button>' +
+  (list.length ? "" : "");
+
+  box.querySelectorAll("img[data-src]").forEach(async img => {
+    const d = await ensureSkin(img.dataset.src);
+    if(d) img.src = d;
+    else { const c = img.closest(".skin-cell"); if(c) { c.style.opacity = .4; c.title = "这张背景已丢失"; } }
+  });
+
+  const add = box.querySelector("#skinAdd");
+  if(add) add.addEventListener("click", () => $("#skinFile").click());
+
+  box.querySelectorAll(".skin-cell").forEach(cell => {
+    cell.addEventListener("click", e => {
+      if(e.target.closest(".del")) return;
+      pickSkin(cell.dataset.id);
+    });
+  });
+  box.querySelectorAll(".del").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.stopPropagation();
+      await removeSkin(btn.dataset.del);
+    });
+  });
+}
+
+async function pickSkin(id){
+  const d = await ensureSkin(id);
+  if(!d){ toast("这张背景读不到了，请重新上传"); return; }
+  settings.bg = Object.assign({}, settings.bg, { enabled:true, skinId:id });
+  applySkin(); renderSkinGrid(); saveSettings();
+  const meta = (settings.skins || []).find(s => s.id === id);
+  toast("背景已切换" + (meta ? "：" + meta.name : ""));
+}
+
+async function removeSkin(id){
+  const meta = (settings.skins || []).find(s => s.id === id);
+  settings.skins = (settings.skins || []).filter(s => s.id !== id);
+  if(settings.bg && settings.bg.skinId === id){
+    const next = settings.skins[0];
+    settings.bg = Object.assign({}, settings.bg, next ? { skinId: next.id } : { enabled:false, skinId:"" });
+  }
+  delete skinCache[id];
+  try{ await idbDel(SKIN_PREFIX + id); }catch(e){}
+  const nx = settings.bg.skinId;
+  if(nx) await ensureSkin(nx);
+  applySkin(); renderSkinGrid(); saveSettings();
+  toast("已删除" + (meta ? "「" + meta.name + "」" : "这张背景"));
+}
+
+function readAsDataURL(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result || ""));
+    fr.onerror = () => rej(fr.error || new Error("读取失败"));
+    fr.readAsDataURL(file);
+  });
+}
+
+/* 大图压一压，省内存也省 IndexedDB 空间 */
+async function shrinkImage(file){
+  let url = await readAsDataURL(file);
+  if(!/^data:image\/(jpeg|png|webp|bmp)/i.test(url)) return url;
+  let img = null;
+  try{
+    img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error("图片无法解码"));
+      i.src = url;
+    });
+  }catch(e){ return url; }
+
+  const MAXW = 2560;
+  const scale = Math.min(1, MAXW / Math.max(1, img.naturalWidth));
+  const tooBig = url.length > 1.7e6;
+  if(scale >= 1 && !tooBig) return url;
+
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d");
+  if(!ctx) return url;
+  ctx.drawImage(img, 0, 0, w, h);
+  let out = "";
+  try{ out = cv.toDataURL("image/jpeg", 0.9); }catch(e){ return url; }
+  return (out && out.length < url.length) ? out : url;
+}
+
+async function importSkinFile(file){
+  if(!file) return;
+  if(!/^image\//i.test(file.type || "")){ toast("请选择图片文件（jpg / png / webp）"); return; }
+  if(file.size > 30 * 1024 * 1024){ toast("图片太大了（超过 30MB）"); return; }
+  let url = "";
+  try{ url = await shrinkImage(file); }
+  catch(e){ toast("这张图片读不出来：" + (e.message || e.name)); return; }
+  if(!url){ toast("图片读取失败"); return; }
+
+  const id = "s" + Date.now().toString(36);
+  try{ await idbSet(SKIN_PREFIX + id, url); }
+  catch(e){ toast("保存背景失败：" + (e.message || "空间不足")); return; }
+
+  skinCache[id] = url;
+  const nice = (file.name || "背景").replace(/\.[^.]+$/, "").slice(0, 20) || "背景";
+  settings.skins = [{ id, name:nice, ts:Date.now() }].concat((settings.skins || []).filter(s => s.id !== id));
+  settings.bg = Object.assign({}, settings.bg, { enabled:true, skinId:id, skinName:nice });
+  applySkin(); renderSkinGrid(); saveSettings();
+  toast("背景已应用：" + nice);
+}
+
+/* ---------- 我的配置 ---------- */
+function loadProfiles(){
+  try{
+    const raw = localStorage.getItem(LS_PROFILES);
+    if(raw){ const a = JSON.parse(raw); if(Array.isArray(a)) profiles = a.filter(p => p && p.id && p.cfg); }
+  }catch(e){}
+}
+function saveProfiles(){
+  try{ localStorage.setItem(LS_PROFILES, JSON.stringify(profiles)); }catch(e){}
+  scheduleCfgSync();
+}
+
+function describeCfg(cfg){
+  const bits = [];
+  if(cfg.theme && cfg.theme.name) bits.push(cfg.theme.name);
+  if(cfg.fs) bits.push(cfg.fs + "px");
+  if(cfg.bg && cfg.bg.enabled && cfg.bg.skinId){
+    const s = (settings.skins || []).find(x => x.id === cfg.bg.skinId);
+    bits.push("皮肤" + (s ? "·" + s.name : ""));
+  }
+  return bits.join(" · ");
+}
+
+function renderProfiles(){
+  const box = $("#profList");
+  if(!box) return;
+  if(!profiles.length){
+    box.innerHTML = '<div class="prof-empty">还没有存过的配置。调好配色、版式、背景后，在下面起个名字点「保存」，以后一键就能换回来。</div>';
+  } else {
+    box.innerHTML = profiles.map(p => {
+      const t = new Date(p.ts || Date.now());
+      const hh = String(t.getHours()).padStart(2,"0"), mm = String(t.getMinutes()).padStart(2,"0");
+      return '<div class="prof-item" data-id="' + p.id + '">' +
+        '<span class="pn" title="' + esc(p.name) + '">' + esc(p.name) + '</span>' +
+        '<span class="pt">' + (p.ts ? (t.getMonth()+1) + "/" + t.getDate() + " " + hh + ":" + mm : "") + '</span>' +
+        '<button data-apply="' + p.id + '" title="套用这套配置">套用</button>' +
+        '<button class="rm" data-rm="' + p.id + '" title="删除">×</button>' +
+      '</div>';
+    }).join("");
+  }
+  box.querySelectorAll("[data-apply]").forEach(b => b.addEventListener("click", () => applyProfile(b.dataset.apply)));
+  box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => deleteProfile(b.dataset.rm)));
+
+  const hint = $("#cfgHint");
+  if(hint){
+    hint.innerHTML = cfgPath
+      ? '配置会自动记在本机，下次打开原样恢复。配置文件：<span style="word-break:break-all;opacity:.8">' + esc(cfgPath) +
+        '</span> <button id="btnCfgReveal" style="color:var(--accent);font-size:11px">打开位置</button>'
+      : '配色、版式、皮肤会自动记在本机，下次打开原样恢复；也可以在上面存成多套配置，随时换回来。';
+  }
+}
+
+function saveProfile(){
+  const input = $("#profName");
+  let name = (input.value || "").trim();
+  if(!name){
+    const d = new Date();
+    name = (settings.theme.name || "配置") + " " + (d.getMonth()+1) + "/" + d.getDate() + " " +
+           String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+  const cfg = JSON.parse(JSON.stringify(settings));
+  delete cfg.savedAt;
+  const item = { id:"p" + Date.now().toString(36), name:name.slice(0, 24), ts:Date.now(), cfg };
+  profiles = [item].concat(profiles).slice(0, 30);
+  saveProfiles();
+  input.value = "";
+  renderProfiles();
+  toast("已保存配置「" + item.name + "」");
+}
+
+async function applyProfile(id){
+  const p = profiles.find(x => x.id === id);
+  if(!p) return;
+  const main = $("#main");
+  const top = main ? main.scrollTop : 0;
+  settings = mergeSettings(JSON.parse(JSON.stringify(p.cfg)));
+  if(settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
+  applyTheme(); applyTypography(); applySkin();
+  syncControls(); rerender(); saveSettings();
+  if(main) main.scrollTop = top;
+  toast("已套用「" + p.name + "」");
+}
+
+function deleteProfile(id){
+  const p = profiles.find(x => x.id === id);
+  profiles = profiles.filter(x => x.id !== id);
+  saveProfiles(); renderProfiles();
+  toast(p ? "已删除「" + p.name + "」" : "已删除");
+}
+
+function bindSkin(){
+  $("#btnSkinPick").addEventListener("click", () => $("#skinFile").click());
+  $("#btnSkinOff").addEventListener("click", () => {
+    settings.bg = Object.assign({}, settings.bg, { enabled:false });
+    applySkin(); renderSkinGrid(); saveSettings();
+    toast("已暂时不用背景皮肤");
+  });
+  $("#skinFile").addEventListener("change", async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    await importSkinFile(f);
+  });
+  $("#skinFit").addEventListener("change", e => {
+    settings.bg.fit = e.target.value; applySkin(); saveSettings();
+  });
+  const simple = (sel, key, unit) => {
+    $(sel).addEventListener("input", e => {
+      settings.bg[key] = +e.target.value;
+      const lb = $("#v" + sel.slice(1).charAt(0).toUpperCase() + sel.slice(2));
+      if(lb) lb.textContent = (+e.target.value | 0) + unit;
+      applySkin(); saveSettings();
+    });
+  };
+  simple("#skinOp", "opacity", "%");
+  simple("#skinBlur", "blur", "px");
+  simple("#skinDim", "dim", "%");
+  simple("#skinPaper", "paper", "%");
+
+  $("#btnProfSave").addEventListener("click", saveProfile);
+  $("#profName").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); saveProfile(); } });
+  $("#cfgHint").addEventListener("click", e => {
+    if(e.target && e.target.id === "btnCfgReveal" && NATIVE && NATIVE.revealConfig){
+      try{ NATIVE.revealConfig(); }catch(err){}
+    }
+  });
+  // 面板关闭/窗口失焦时把配置立刻落盘，避免刚调完就关掉没存上
+  $("#closeSettings").addEventListener("click", () => { if(cfgTimer) flushCfg(); });
+  window.addEventListener("blur", () => { if(cfgTimer) flushCfg(); });
+}
+
+function rerender(){
+  const res = MD.render(state.content);
+  state.headings = res.headings;
+  const preview = $("#preview");
+  preview.innerHTML = res.html;
+  markWords(preview);
+  const reader = $("#reader");
+  reader.innerHTML = res.html;
+  state.charCount = markWords(reader);
+  buildToc();
+  buildWmNav();
+  updateStats();
+}
+
+function bindSettings(){
+  $("#rFs").addEventListener("input", e => { settings.fs = +e.target.value; $("#vFs").textContent = settings.fs+"px"; applyTypography(); saveSettings(); });
+  $("#rLh").addEventListener("input", e => { settings.lh = +e.target.value; $("#vLh").textContent = settings.lh.toFixed(2); applyTypography(); saveSettings(); });
+  $("#rLs").addEventListener("input", e => { settings.ls = +e.target.value; $("#vLs").textContent = settings.ls.toFixed(2)+"em"; applyTypography(); saveSettings(); });
+  $("#rGap").addEventListener("input", e => { settings.gap = +e.target.value; $("#vGap").textContent = settings.gap.toFixed(1)+"em"; applyTypography(); saveSettings(); });
+  $("#rW").addEventListener("input", e => { settings.w = +e.target.value; $("#vW").textContent = settings.w+"px"; applyTypography(); saveSettings(); });
+  $("#fontSel").addEventListener("change", e => { settings.font = e.target.value; applyTypography(); saveSettings(); });
+  $("#optIndent").addEventListener("change", e => { settings.indent = e.target.checked; applyTypography(); saveSettings(); });
+  $("#optSoftbreak").addEventListener("change", e => { settings.softbreak = e.target.checked; saveSettings(); rerender(); });
+  $("#optChap").addEventListener("change", e => { settings.chapStyle = e.target.checked; saveSettings(); rerender(); });
+  $("#optSel").addEventListener("change", e => { settings.selCount = e.target.checked; saveSettings(); if(!e.target.checked) hideSelPop(); });
+  $("#wmStep").addEventListener("change", e => { settings.wmStep = +e.target.value; saveSettings(); rerender(); toast(settings.wmStep ? "每 " + fmt(settings.wmStep) + " 字标记一次" : "已关闭字数标记"); });
+
+  $("#bgColor").addEventListener("input", e => {
+    settings.theme.bg = e.target.value;
+    settings.theme.name = "自定义";
+    if(settings.autoFg) settings.theme.fg = lum(e.target.value) > 0.5 ? "#2b2b2b" : "#c8ccd4";
+    syncThemeInputs(); applyTheme(); markSwatch(); saveSettings();
+  });
+  $("#fgColor").addEventListener("input", e => {
+    settings.theme.fg = e.target.value;
+    settings.theme.name = "自定义";
+    applyTheme(); markSwatch(); saveSettings();
+  });
+  $("#accentColor").addEventListener("input", e => {
+    settings.theme.accent = e.target.value;
+    settings.theme.name = "自定义";
+    applyTheme(); markSwatch(); saveSettings();
+  });
+  $("#autoFg").addEventListener("change", e => { settings.autoFg = e.target.checked; saveSettings(); });
+
+  $("#resetFont").addEventListener("click", () => {
+    settings.fs = DEFAULT_SETTINGS.fs;
+    settings.lh = DEFAULT_SETTINGS.lh;
+    settings.ls = DEFAULT_SETTINGS.ls;
+    settings.gap = DEFAULT_SETTINGS.gap;
+    settings.w = DEFAULT_SETTINGS.w;
+    settings.font = DEFAULT_SETTINGS.font;
+    settings.indent = DEFAULT_SETTINGS.indent;
+    applyTypography(); syncControls(); saveSettings();
+    toast("版式已恢复默认");
+  });
+}
+
+/* =====================================================================
+   12. 事件绑定
+   ===================================================================== */
+function bumpFont(d){
+  settings.fs = Math.min(44, Math.max(14, settings.fs + d));
+  applyTypography();
+  syncControls();
+  saveSettings();
+}
+
+function bindUI(){
+  $("#btnFolder").addEventListener("click", pickFolder);
+  $("#btnFolder2").addEventListener("click", pickFolder);
+  $("#btnResume").addEventListener("click", resumeProject);
+  $("#sbRefresh").addEventListener("click", refreshProject);
+  $("#btnOpen").addEventListener("click", openFile);
+  $("#btnOpen2").addEventListener("click", openFile);
+  $("#btnSave").addEventListener("click", () => saveFile(false));
+  $("#btnSaveAs").addEventListener("click", () => saveFile(true));
+  $("#btnCopyAll").addEventListener("click", copyAll);
+
+  // 草稿 / 已修订
+  $("#statPill").addEventListener("click", () => toggleFileStatus());
+  $("#statBar").addEventListener("click", e => {
+    const b = e.target.closest("button[data-st]");
+    if(!b) return;
+    state.fileFilterStatus = b.dataset.st;
+    renderFileList();
+  });
+  $("#btnNew").addEventListener("click", async () => {
+    if(!(await beforeSwitch())) return;
+    loadContent("", "未命名.md", null);
+    clearProjectSelection();
+    setMode("edit");
+    toast("新建空白文档，开始写吧");
+  });
+
+  $("#btnRead").addEventListener("click", () => setMode("read"));
+  $("#btnEdit").addEventListener("click", () => setMode("edit"));
+
+  $$("#sbTabs button").forEach(b => {
+    b.addEventListener("click", () => switchTab(b.dataset.tab));
+  });
+  $("#fileFilter").addEventListener("input", renderFileList);
+
+  $("#btnFind").addEventListener("click", openFind);
+  $("#closeFind").addEventListener("click", () => $("#replaceBar").classList.remove("show"));
+  $("#findInput").addEventListener("input", () => { state.matchIndex = 0; refreshMatches(false); if(state.matches.length) selectMatch(); });
+  $("#findInput").addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); findStep(e.shiftKey ? -1 : 1); }
+  });
+  $("#replaceInput").addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); (e.ctrlKey || e.metaKey) ? replaceAll() : replaceOne(); }
+  });
+  $("#findNext").addEventListener("click", () => findStep(1));
+  $("#findPrev").addEventListener("click", () => findStep(-1));
+  $("#btnReplaceOne").addEventListener("click", replaceOne);
+  $("#btnReplaceAll").addEventListener("click", replaceAll);
+  $("#optCase").addEventListener("click", e => { e.currentTarget.classList.toggle("on"); refreshMatches(false); });
+  $("#optRegex").addEventListener("click", e => { e.currentTarget.classList.toggle("on"); refreshMatches(false); });
+
+  $("#btnSettings").addEventListener("click", () => $("#settingsPanel").classList.toggle("show"));
+  $("#closeSettings").addEventListener("click", () => $("#settingsPanel").classList.remove("show"));
+  $("#btnToc").addEventListener("click", () => $("#sidebar").classList.toggle("collapsed"));
+
+  $("#fsUp").addEventListener("click", () => bumpFont(1));
+  $("#fsDown").addEventListener("click", () => bumpFont(-1));
+
+  $("#main").addEventListener("scroll", () => { updateProgress(); hideSelPop(); }, {passive:true});
+
+  // 点正文里的字数标，同样跳到那一行顶部
+  ["#reader", "#preview"].forEach(sel => {
+    const host = $(sel);
+    if(!host) return;
+    host.addEventListener("click", e => {
+      const mark = e.target.closest ? e.target.closest(".wm") : null;
+      if(!mark) return;
+      e.preventDefault();
+      jumpToMark(+mark.dataset.n);
+    });
+  });
+
+  $("#editor").addEventListener("scroll", () => {
+    const ed = $("#editor");
+    const max = ed.scrollHeight - ed.clientHeight;
+    const p = max > 0 ? Math.min(100, Math.max(0, ed.scrollTop / max * 100)) : 0;
+    $("#progressBar").style.width = p.toFixed(2) + "%";
+    $("#stProgress").textContent = p.toFixed(0) + "%";
+  }, {passive:true});
+
+  // 选中字数
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(onSelectionChange, 60);
+  });
+  document.addEventListener("mouseup", () => setTimeout(onSelectionChange, 10));
+  $("#editor").addEventListener("select", onSelectionChange);
+  $("#editor").addEventListener("keyup", () => { if(state.mode === "edit") onSelectionChange(); });
+  $("#editor").addEventListener("blur", () => setStatusSel(0));
+  document.addEventListener("mousedown", e => {
+    if(!e.target.closest("#selPop")) hideSelPop();
+  });
+  // 点浮标上的「复制」时不要清掉选区/焦点，否则复制不到
+  $("#selPop").addEventListener("mousedown", e => { e.preventDefault(); });
+  $("#selCopy").addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    copySelection();
+  });
+
+  // 拖拽
+  const dz = $("#dropZone");
+  ["dragenter","dragover"].forEach(ev => document.addEventListener(ev, e => {
+    e.preventDefault();
+    if(dz) dz.classList.add("drag");
+  }));
+  ["dragleave","drop"].forEach(ev => document.addEventListener(ev, e => {
+    e.preventDefault();
+    if(ev === "dragleave" && e.relatedTarget) return;
+    if(dz) dz.classList.remove("drag");
+  }));
+  document.addEventListener("drop", async e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(!f) return;
+    if(!MD_RE.test(f.name) && !/^text\//.test(f.type)){
+      toast("只支持 Markdown / 文本文件");
+      return;
+    }
+    if(!(await beforeSwitch())) return;
+
+    // 桌面版：拿到真实路径，之后保存直接写回原文件
+    if(NATIVE){
+      let p = "";
+      try{ p = NATIVE.pathForFile(f) || ""; }catch(err){ p = ""; }
+      if(p){
+        try{
+          const text = await NATIVE.readFile(p);
+          loadContent(text, baseName(p), vFile(p, baseName(p)));
+          clearProjectSelection();
+          toast("已打开 " + baseName(p));
+          return;
+        }catch(err){}
+      }
+      const t2 = await f.text();
+      loadContent(t2, f.name, null);
+      clearProjectSelection();
+      toast("已打开 " + f.name);
+      return;
+    }
+
+    const text = await f.text();
+    loadContent(text, f.name, null);
+    clearProjectSelection();
+    toast("已打开 " + f.name);
+  });
+
+  // 快捷键
+  document.addEventListener("keydown", e => {
+    const ctrl = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    if(ctrl && e.shiftKey && k === "o"){ e.preventDefault(); pickFolder(); }
+    else if(ctrl && !e.shiftKey && k === "o"){ e.preventDefault(); openFile(); }
+    else if(ctrl && (k === "s")){ e.preventDefault(); saveFile(e.shiftKey); }
+    else if(ctrl && k === "e"){ e.preventDefault(); setMode(state.mode === "edit" ? "read" : "edit"); }
+    else if(ctrl && k === "f"){ e.preventDefault(); openFind(); }
+    else if(ctrl && e.shiftKey && k === "c"){ e.preventDefault(); copyAll(); }
+    else if(ctrl && e.shiftKey && k === "d"){ e.preventDefault(); toggleFileStatus(); }
+    else if(ctrl && k === "b"){ e.preventDefault(); $("#sidebar").classList.toggle("collapsed"); }
+    else if(ctrl && e.key === "ArrowUp"){ e.preventDefault(); bumpFont(1); }
+    else if(ctrl && e.key === "ArrowDown"){ e.preventDefault(); bumpFont(-1); }
+    else if(e.key === "Escape"){
+      $("#settingsPanel").classList.remove("show");
+      $("#replaceBar").classList.remove("show");
+      hideSelPop();
+      if(state.mode === "edit") setMode("read");
+    }
+  });
+
+  window.addEventListener("beforeunload", e => {
+    if(NATIVE) return;                 // 桌面版由主进程负责保存后关窗
+    if(state.dirty){ e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // 桌面版：编辑停顿 1.2s 自动写回磁盘
+  if(NATIVE){
+    let autoTimer = null;
+    $("#editor").addEventListener("input", () => {
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(async () => {
+        if(!state.dirty || !state.handle || !state.handle.__native) return;
+        try{
+          await NATIVE.writeFile(state.handle.__native, state.content);
+          state.dirty = false;
+          updateStats();
+          clearDraft();
+        }catch(err){}
+      }, 1200);
+    });
+
+    // 关窗前保存
+    NATIVE.onWillClose(async () => {
+      try{ clearTimeout(autoTimer); await beforeSwitch(); }catch(err){}
+      try{ await flushCfg(); }catch(err){}
+      try{ NATIVE.closeReady(); }catch(err){}
+    });
+
+    // 命令行 / 双击关联文件打开
+    NATIVE.onOpenPath(async (p) => {
+      try{
+        if(!(await beforeSwitch())) return;
+        const text = await NATIVE.readFile(p);
+        loadContent(text, baseName(p), vFile(p, baseName(p)));
+        clearProjectSelection();
+        toast("已打开 " + baseName(p));
+      }catch(err){
+        toast("打开失败：" + (err.message || err.name), 2600);
+      }
+    });
+  }
+}
+
+/* =====================================================================
+   13. 启动
+   ===================================================================== */
+async function init(){
+  loadSettings();
+  await bootConfig();
+  // 先把当前皮肤的图片读进内存，再上色，避免首屏闪一下
+  if(settings.bg && settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
+  applyTheme();
+  applyTypography();
+  buildSwatches();
+  syncControls();
+  bindSettings();
+  bindSkin();
+  bindUI();
+  updateStats();
+
+  const restored = restoreDraft();
+  if(!restored){
+    const demo = [
+      "# 示例 · 第一章 雾起",
+      "",
+      "天色尚未亮透，河面上浮着一层薄薄的白雾，像是谁把整夜的梦都摊开晾在了水面上。",
+      "",
+      "摆渡的老周把竹篙往水里一插，船身轻轻晃了晃。他抬眼看了看岸边那个背着旧布包的人，烟斗在嘴角挪了挪。",
+      "",
+      "「这么早过河？」",
+      "",
+      "「赶时间。」那人说。",
+      "",
+      "老周没再问。他见过太多赶时间的人，最后都在这条河上慢了下来。",
+      "",
+      "---",
+      "",
+      "## 第二章 河灯",
+      "",
+      "> 河灯不是为了照亮路，是为了让人记得，曾经有人在黑暗里点过火。",
+      "",
+      "夜里的河比白天热闹。几十盏纸灯顺流而下，把水面割成一段一段的暖色。",
+      "",
+      "「你信这些吗？」",
+      "",
+      "「不信。」她顿了顿，「但我每年都来。」"
+    ].join("\n");
+    loadContent(demo, "示例 · 雾起.md", null);
+    state.dirty = false;
+    updateStats();
+    renderFileList();
+  }
+
+  updateProgress();
+
+  // 尝试恢复上次的项目（若刚恢复了草稿，则只恢复项目列表，不覆盖内容）
+  try{ await restoreProject(restored); }catch(e){}
+
+  setTimeout(() => toast(IS_DESKTOP
+    ? "Ctrl+Shift+O 打开文件夹，Ctrl+S 保存，编辑会自动写回"
+    : "Ctrl+Shift+O 打开文件夹，拖入文件也能读", 3000), 500);
+}
+
+init();
+</script>
+</body>
+</html>

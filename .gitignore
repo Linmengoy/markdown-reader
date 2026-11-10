@@ -1,0 +1,36 @@
+# ---- 依赖 ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ---- 打包产物 ----
+dist/
+dist_*/
+*.exe
+.build/app/
+.build/_leftover/
+.build/.udata*/
+.build/.out*.txt
+.build/.res*.txt
+.build/.check.js
+
+# ---- 测试截图（本地自检用，不进仓库）----
+.build/preview-*.png
+.build/o*.txt
+
+# ---- 一次性调试脚本 ----
+.build/probe-*.js
+.build/bounds-probe*.js
+.build/scan*.js
+.build/crop.js
+.build/screeninfo.js
+.build/shot-read.js
+.build/shot-tree.js
+
+# ---- 编辑器 / 系统 ----
+.workbuddy/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.build/.o*.txt

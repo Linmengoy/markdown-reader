@@ -1,0 +1,43 @@
+{
+  "name": "novel-reader",
+  "productName": "Markdown小说阅读器",
+  "version": "1.0.0",
+  "description": "Markdown 小说阅读器",
+  "main": "main.js",
+  "author": "local",
+  "license": "MIT",
+  "build": {
+    "appId": "com.local.mdnovelreader",
+    "productName": "Markdown小说阅读器",
+    "directories": {
+      "output": "../dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "build/icon.ico"
+    ],
+    "compression": "maximum",
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Markdown小说阅读器.exe",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "unpackDirName": "MDNovelReader",
+      "artifactName": "Markdown小说阅读器.exe"
+    },
+    "afterPack": "afterPack.js"
+  }
+}
