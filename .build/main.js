@@ -144,7 +144,8 @@ function registerIpc(){
 
   ipcMain.handle("fs:defaultPaths", async () => ({
     documents: app.getPath("documents"),
-    downloads: app.getPath("downloads")
+    downloads: app.getPath("downloads"),
+    temp: app.getPath("temp")
   }));
 
   ipcMain.handle("state:getProject", async () => readState().project || null);

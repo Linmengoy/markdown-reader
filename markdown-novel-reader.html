@@ -466,6 +466,13 @@ select.sel{
 .statusbar button:hover{background:var(--panel2);color:var(--fg)}
 #stSel{color:var(--accent);font-weight:600}
 #stSel.hide{display:none}
+/* 自动保存刚落盘时闪一下，让人确认「存上了」 */
+#stSave.flash{animation:savedFlash .55s ease}
+@keyframes savedFlash{
+  0%{color:var(--accent);opacity:.35}
+  60%{color:var(--accent);opacity:1}
+  100%{color:var(--muted);opacity:1}
+}
 
 /* 选中浮标：字数 + 一键复制选中的文字 */
 #selPop{
@@ -833,6 +840,7 @@ body.skin-on .prose{
           <label class="chk"><input type="checkbox" id="optSoftbreak" checked> 保留单行换行（小说友好）</label>
           <label class="chk"><input type="checkbox" id="optChap" checked> 优雅排版章节标题</label>
           <label class="chk"><input type="checkbox" id="optSel" checked> 选中文字时显示字数与「复制」按钮</label>
+          <label class="chk"><input type="checkbox" id="optAutoSave" checked> 自动保存（改动停顿即写回文件）</label>
           <div class="hint">段落号按正文顺序给每个段落编号（列表项、表格、引用块内部不单独编号），阅读区和编辑预览都会显示，方便对稿时互相指认「第几段」。</div>
         </section>
 
@@ -926,6 +934,11 @@ function lum(h){
   return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);
 }
 const fmt = n => n.toLocaleString("en-US");
+const clock = ts => {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, "0");
+  return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+};
 
 let toastTimer = null;
 function toast(msg, ms){
@@ -1259,7 +1272,7 @@ const DEFAULT_SETTINGS = {
   fs:19, lh:1.9, ls:0.02, gap:0.9, w:720,
   font:"sans", indent:false, softbreak:true, chapStyle:true,
   wmStep:2000, selCount:true,
-  mode:"edit", parano:false, gutter:true, side:false,
+  mode:"edit", parano:false, gutter:true, side:false, autoSave:true,
   bg:{enabled:false, skinId:"", fit:"cover", opacity:100, blur:0, dim:45, paper:60},
   skins:[]
 };
@@ -1851,7 +1864,9 @@ function updateStats(){
   $("#fileName").textContent = state.fileName || "未打开文件";
   $("#dirtyDot").classList.toggle("on", state.dirty);
   $("#stSave").textContent = state.handle
-    ? (state.dirty ? "未保存" : "已保存到磁盘")
+    ? (state.dirty
+        ? (autoSaveTarget() && settings.autoSave !== false ? "待自动保存…" : "未保存")
+        : (lastAutoSaved ? "已自动保存 " + clock(lastAutoSaved) : "已保存到磁盘"))
     : (state.fileName ? (state.dirty ? "未保存" : "内存中") : "—");
   document.body.classList.toggle("has-doc", !!(state.content || state.fileName));
   updateFileListActive();
@@ -2023,6 +2038,64 @@ function restoreDraft(){
   }catch(e){ return false; }
 }
 
+/* ---------- 自动保存：改动停顿片刻即写回磁盘 ---------- */
+const AUTO_SAVE_MS = 800;
+let autoSaveTimer = null;
+let lastAutoSaved = 0;
+let lastSaveFail = 0;
+
+function autoSaveTarget(){
+  return (NATIVE && state.handle && state.handle.__native) ? state.handle : null;
+}
+function scheduleAutoSave(){
+  if(!NATIVE || settings.autoSave === false) return;
+  const h = autoSaveTarget();
+  if(!h) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => { autoSaveNow(h); }, AUTO_SAVE_MS);
+}
+/* expected：发起时的句柄。等待期间如果已经切到别的文件，就别写串了 */
+async function autoSaveNow(expected){
+  clearTimeout(autoSaveTimer); autoSaveTimer = null;
+  const h = autoSaveTarget();
+  if(!h) return false;
+  if(expected && h !== expected) return false;
+  if(!state.dirty) return false;
+  const text = state.content;
+  try{
+    await NATIVE.writeFile(h.__native, text);
+  }catch(err){
+    // 写盘失败也不能静默丢字：先落成草稿，并提醒一次
+    try{
+      localStorage.setItem(LS_DRAFT, JSON.stringify({
+        name: state.fileName, path: state.project.currentPath,
+        content: text, ts: Date.now()
+      }));
+    }catch(e){}
+    const now = Date.now();
+    if(now - lastSaveFail > 8000){
+      lastSaveFail = now;
+      toast("自动保存失败（" + (err && err.message ? err.message : "无法写入") + "），已暂存为草稿", 3200);
+    }
+    return false;
+  }
+  if(state.handle === h && state.content === text){
+    state.dirty = false;
+    lastAutoSaved = Date.now();
+    clearDraft();
+    updateStats();
+    flashSaved();
+  }
+  return true;
+}
+function flashSaved(){
+  const el = $("#stSave");
+  if(!el) return;
+  el.classList.remove("flash");
+  void el.offsetWidth;         // 重新触发动画
+  el.classList.add("flash");
+}
+
 /* =====================================================================
    8. 文件 / 文件夹
    ===================================================================== */
@@ -2071,6 +2144,7 @@ function confirmDiscard(){
 
 // 切换文件前：能写盘就静默保存，不能写盘则暂存草稿
 async function beforeSwitch(){
+  clearTimeout(autoSaveTimer); autoSaveTimer = null;
   if(!state.dirty || !state.content) return true;
   if(state.handle){
     try{
@@ -2080,6 +2154,7 @@ async function beforeSwitch(){
         await w.write(state.content);
         await w.close();
         state.dirty = false;
+        lastAutoSaved = Date.now();
         updateStats();
         clearDraft();
         toast("已自动保存 " + state.fileName, 1600);
@@ -2102,6 +2177,7 @@ function loadContent(text, name, handle){
   state.fileName = name || "未命名.md";
   state.handle = handle || null;
   state.dirty = false;
+  lastAutoSaved = 0;
   state.srcIdx = null;
   state.lastJumpN = 0;
   $("#editor").value = state.content;
@@ -2769,6 +2845,7 @@ async function saveFile(asNew){
       state.handle = vFile(r.path, r.name);
       state.fileName = r.name;
       state.dirty = false;
+      lastAutoSaved = 0;
       updateStats();
       clearDraft();
       syncProjectAfterSave(r.path);
@@ -2793,6 +2870,7 @@ async function saveFile(asNew){
       state.handle = handle;
       state.fileName = handle.name;
       state.dirty = false;
+      lastAutoSaved = 0;
       updateStats();
       toast("已另存为 " + handle.name);
       return;
@@ -2810,6 +2888,7 @@ async function saveFile(asNew){
       await w.write(state.content);
       await w.close();
       state.dirty = false;
+      lastAutoSaved = 0;
       updateStats();
       toast("已保存到 " + state.fileName);
       clearDraft();
@@ -2881,6 +2960,7 @@ function toggleSidebar(){
 
 function setMode(mode){
   if(mode !== "read" && mode !== "edit" && mode !== "source") mode = "edit";
+  if(mode !== state.mode) autoSaveNow();   // 切模式前先落一次盘
   const wasEdit = state.mode !== "read";
   const main = $("#main");
   const ratio = main.scrollHeight > main.clientHeight
@@ -2963,6 +3043,7 @@ function onEditorInput(){
     saveDraft();
   }, 200);
   saveDraft();
+  scheduleAutoSave();
 }
 
 $("#editor").addEventListener("input", onEditorInput);
@@ -3251,6 +3332,7 @@ function syncControls(){
   $("#optSel").checked = settings.selCount;
   $("#optParaNo").checked = !!settings.parano;
   $("#optGutter").checked = settings.gutter !== false;
+  $("#optAutoSave").checked = settings.autoSave !== false;
   syncThemeInputs();
   markSwatch();
   syncSkinControls();
@@ -3614,6 +3696,13 @@ function bindSettings(){
   $("#optSel").addEventListener("change", e => { settings.selCount = e.target.checked; saveSettings(); if(!e.target.checked) hideSelPop(); });
   $("#optParaNo").addEventListener("change", e => { settings.parano = e.target.checked; applyParaNo(); saveSettings(); });
   $("#optGutter").addEventListener("change", e => { settings.gutter = e.target.checked; layoutGutter(); saveSettings(); });
+  $("#optAutoSave").addEventListener("change", e => {
+    settings.autoSave = e.target.checked;
+    saveSettings();
+    updateStats();
+    if(e.target.checked) scheduleAutoSave();
+    toast(e.target.checked ? "改动会停 1 秒自动写回文件" : "已关闭自动保存，记得按 Ctrl+S");
+  });
   $("#wmStep").addEventListener("change", e => { settings.wmStep = +e.target.value; saveSettings(); rerender(); toast(settings.wmStep ? "每 " + fmt(settings.wmStep) + " 字标记一次" : "已关闭字数标记"); });
 
   $("#bgColor").addEventListener("input", e => {
@@ -3831,25 +3920,16 @@ function bindUI(){
     if(state.dirty){ e.preventDefault(); e.returnValue = ""; }
   });
 
-  // 桌面版：编辑停顿 1.2s 自动写回磁盘
+  // 桌面版：除了打字停顿，这几处也顺手落一次盘，别让「刚打完就切走」丢字
   if(NATIVE){
-    let autoTimer = null;
-    $("#editor").addEventListener("input", () => {
-      clearTimeout(autoTimer);
-      autoTimer = setTimeout(async () => {
-        if(!state.dirty || !state.handle || !state.handle.__native) return;
-        try{
-          await NATIVE.writeFile(state.handle.__native, state.content);
-          state.dirty = false;
-          updateStats();
-          clearDraft();
-        }catch(err){}
-      }, 1200);
-    });
+    $("#editor").addEventListener("blur", () => { autoSaveNow(); });
+    window.addEventListener("blur", () => { autoSaveNow(); });
+    document.addEventListener("visibilitychange", () => { if(document.hidden) autoSaveNow(); });
 
     // 关窗前保存
     NATIVE.onWillClose(async () => {
-      try{ clearTimeout(autoTimer); await beforeSwitch(); }catch(err){}
+      try{ await autoSaveNow(); }catch(err){}
+      try{ await beforeSwitch(); }catch(err){}
       try{ await flushCfg(); }catch(err){}
       try{ NATIVE.closeReady(); }catch(err){}
     });
