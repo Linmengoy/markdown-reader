@@ -55,6 +55,7 @@ input,textarea,select{font-family:inherit;color:inherit}
 .btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
 .btn.ghost{color:var(--muted)}
 .btn.ghost:hover{color:var(--fg)}
+.btn.ghost.on{color:var(--fg);background:var(--panel2)}
 .btn.accent{color:var(--accent)}
 .btn svg{width:15px;height:15px;flex:0 0 auto}
 .sep{width:1px;height:20px;background:var(--border);margin:0 3px}
@@ -1258,7 +1259,7 @@ const DEFAULT_SETTINGS = {
   fs:19, lh:1.9, ls:0.02, gap:0.9, w:720,
   font:"sans", indent:false, softbreak:true, chapStyle:true,
   wmStep:2000, selCount:true,
-  mode:"edit", parano:false, gutter:true,
+  mode:"edit", parano:false, gutter:true, side:false,
   bg:{enabled:false, skinId:"", fit:"cover", opacity:100, blur:0, dim:45, paper:60},
   skins:[]
 };
@@ -2857,6 +2858,27 @@ function download(){
 /* =====================================================================
    9. 模式切换（read 阅读 / edit 左右栏 / source 源码全屏）
    ===================================================================== */
+
+/* ---------- 侧栏：按记住的偏好展开/收起 ---------- */
+function syncSideBtn(){
+  const sb = $("#sidebar"), b = $("#btnToc");
+  if(b && sb) b.classList.toggle("on", !sb.classList.contains("collapsed"));
+}
+function applySidebar(){
+  const sb = $("#sidebar");
+  if(!sb) return;
+  sb.classList.toggle("collapsed", !!settings.side);
+  syncSideBtn();
+}
+function toggleSidebar(){
+  const sb = $("#sidebar");
+  if(!sb) return;
+  settings.side = !sb.classList.contains("collapsed");   // 记成「收起」还是「展开」
+  state.sidebarWasOpen = false;                          // 手动动过就以这次为准
+  applySidebar();
+  saveSettings();
+}
+
 function setMode(mode){
   if(mode !== "read" && mode !== "edit" && mode !== "source") mode = "edit";
   const wasEdit = state.mode !== "read";
@@ -2882,9 +2904,10 @@ function setMode(mode){
       sb.classList.add("collapsed");
     }
   }else if(state.sidebarWasOpen){
-    if(sb) sb.classList.remove("collapsed");
     state.sidebarWasOpen = false;
+    applySidebar();          // 按记住的偏好还原，而不是无条件展开
   }
+  syncSideBtn();             // 按钮高亮跟着「实际看不看得见」走
 
   // 两种模式正文宽度不同，标记挂左侧还是退回段末需要重算
   const host = mode === "read" ? $("#reader") : $("#preview");
@@ -3504,8 +3527,10 @@ async function applyProfile(id){
   const main = $("#main");
   const top = main ? main.scrollTop : 0;
   const keepMode = state.mode;    // 套用版式不该把阅读/编辑模式也一起换掉
+  const keepSide = settings.side; // 侧栏开合是个人习惯，也不跟着换
   settings = mergeSettings(JSON.parse(JSON.stringify(p.cfg)));
   settings.mode = keepMode;
+  settings.side = keepSide;
   if(settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
   applyTheme(); applyTypography(); applySkin(); applyParaNo();
   syncControls(); rerender(); saveSettings();
@@ -3686,7 +3711,7 @@ function bindUI(){
 
   $("#btnSettings").addEventListener("click", () => $("#settingsPanel").classList.toggle("show"));
   $("#closeSettings").addEventListener("click", () => $("#settingsPanel").classList.remove("show"));
-  $("#btnToc").addEventListener("click", () => $("#sidebar").classList.toggle("collapsed"));
+  $("#btnToc").addEventListener("click", toggleSidebar);
 
   $("#fsUp").addEventListener("click", () => bumpFont(1));
   $("#fsDown").addEventListener("click", () => bumpFont(-1));
@@ -3791,7 +3816,7 @@ function bindUI(){
     else if(ctrl && k === "f"){ e.preventDefault(); openFind(); }
     else if(ctrl && e.shiftKey && k === "c"){ e.preventDefault(); copyAll(); }
     else if(ctrl && e.shiftKey && k === "d"){ e.preventDefault(); toggleFileStatus(); }
-    else if(ctrl && k === "b"){ e.preventDefault(); $("#sidebar").classList.toggle("collapsed"); }
+    else if(ctrl && k === "b"){ e.preventDefault(); toggleSidebar(); }
     else if(ctrl && e.key === "ArrowUp"){ e.preventDefault(); bumpFont(1); }
     else if(ctrl && e.key === "ArrowDown"){ e.preventDefault(); bumpFont(-1); }
     else if(e.key === "Escape"){
@@ -3854,6 +3879,7 @@ async function init(){
   if(settings.bg && settings.bg.enabled && settings.bg.skinId) await ensureSkin(settings.bg.skinId);
   applyTheme();
   applyTypography();
+  applySidebar();          // 侧栏展开/收起也沿用上次
   // 默认落在编辑模式；如果上次退出时在阅读模式，就沿用上次的
   setMode(settings.mode === "read" ? "read" : "edit");
   applyParaNo();
