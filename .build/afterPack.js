@@ -31,6 +31,11 @@ async function runRcedit(rcedit, args){
 }
 
 exports.default = async function(context){
+  // CI 里改由 electron-builder 内建的 rcedit 写入，这里跳过以免重复写同一个 exe
+  if (process.env.MDNR_SKIP_AFTERPACK === "1"){
+    console.log("[afterPack] MDNR_SKIP_AFTERPACK=1，跳过");
+    return;
+  }
   // 只处理 Windows exe 的版本信息与图标；macOS 的图标由 icns 决定
   if (context.electronPlatformName !== "win32"){
     console.log("[afterPack] 非 Windows 目标，跳过");

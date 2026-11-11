@@ -23,6 +23,8 @@ if [ ! -d node_modules/electron ]; then
 fi
 
 echo "==> 同步前端页面"
+# app/ 是构建时生成的副本（被 .gitignore 排除），新克隆的仓库里没有这个目录
+mkdir -p app
 cp "$ROOT/markdown-novel-reader.html" app/
 
 echo "==> 生成图标（ico + 1024px png，mac 用 png 转 icns）"

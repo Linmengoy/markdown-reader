@@ -28,13 +28,22 @@ jobs:
       - name: 同步页面并生成图标
         working-directory: .build
         run: |
+          # app/ 是构建时生成的副本，被 .gitignore 排除，新克隆的仓库里没有这个目录
+          mkdir -p app
           cp ../markdown-novel-reader.html app/
-          npx electron make-icon.js
+          # 用本地安装的 electron，避免 npx 去下载别的版本。
+          # 生成失败（无图形环境等）时沿用仓库里已提交的 build/ 图标，不中断构建。
+          if ./node_modules/.bin/electron make-icon.js; then
+            echo "图标已按 assets/logo.jpg 重新生成"
+          else
+            git checkout -- build/ 2>/dev/null || true
+            echo "::warning::图标生成失败，沿用仓库中已提交的 build/ 图标"
+          fi
 
       - name: 打包 dmg / zip
         working-directory: .build
         run: |
-          npx electron-builder --mac --${{ matrix.arch }} --publish never \
+          ./node_modules/.bin/electron-builder --mac --${{ matrix.arch }} --publish never \
             -c.directories.output=../dist-mac
 
       - name: 上传产物
@@ -63,10 +72,19 @@ jobs:
       - name: 打包单文件 exe
         working-directory: .build
         shell: bash
+        env:
+          # CI 是全新环境，用 builder 内建的 rcedit 写图标/版本更可靠；
+          # afterPack 依赖本地 electron-builder 的 winCodeSign 缓存，在 CI 上未必存在
+          MDNR_SKIP_AFTERPACK: "1"
         run: |
+          mkdir -p app
           cp ../markdown-novel-reader.html app/
-          node_modules/.bin/electron make-icon.js
+          if ! node_modules/.bin/electron make-icon.js; then
+            git checkout -- build/ 2>/dev/null || true
+            echo "::warning::图标生成失败，沿用仓库中已提交的 build/ 图标"
+          fi
           node_modules/.bin/electron-builder --win portable --x64 \
+            -c.win.signAndEditExecutable=true \
             -c.directories.output=../dist-win
 
       - name: 上传产物

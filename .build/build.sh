@@ -16,6 +16,8 @@ rm -rf "$ROOT"/dist_old_* "$ROOT"/dist_[0-9]* "$ROOT"/_trash_delete_me 2>/dev/nu
 rm -f "$ROOT/dist/.rcedit-ok" 2>/dev/null || true
 
 echo "==> 同步前端页面"
+# app/ 是构建时生成的副本（被 .gitignore 排除），新克隆的仓库里没有这个目录
+mkdir -p app
 cp "$ROOT/markdown-novel-reader.html" app/
 
 echo "==> 生成图标（从 assets/logo.jpg）"
