@@ -40,10 +40,14 @@ jobs:
             echo "::warning::图标生成失败，沿用仓库中已提交的 build/ 图标"
           fi
 
-      - name: 打包 dmg / zip
+      - name: 打包 zip
         working-directory: .build
         run: |
-          ./node_modules/.bin/electron-builder --mac --${{ matrix.arch }} --publish never \
+          # 只出 zip：解压后就是完整的 .app，功能与 dmg 一致。
+          # dmg 在 CI 上不稳——hdiutil detach 常因挂载卷已被系统自动卸载而报
+          # "No such file or directory"，属于无头环境的竞态，与卷名无关。
+          # 需要 dmg 时在真实 Mac 上跑 build-mac.sh（本地有 GUI，成功率高）。
+          ./node_modules/.bin/electron-builder --mac zip --${{ matrix.arch }} --publish never \
             -c.directories.output=../dist-mac
 
       - name: 上传产物

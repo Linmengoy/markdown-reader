@@ -43,7 +43,7 @@
 
 **Windows（推荐）**：下载仓库 Releases 里的 `Markdown小说阅读器.exe`，双击即用 —— 单文件便携版，不安装、不写注册表，可直接读写本机文件。
 
-**macOS**：下载 Releases 里的 `Markdown小说阅读器-<版本>-arm64.dmg`（Apple 芯片）或 `-x64.dmg`（Intel），拖进「应用程序」。包未做代码签名，首次打开若被拦下，右键图标选「打开」，或到「系统设置 → 隐私与安全性」里点「仍要打开」。
+**macOS**：下载 `Markdown小说阅读器-<版本>-arm64.zip`（Apple 芯片）或 `-x64.zip`（Intel），解压后把 `.app` 拖进「应用程序」。包未做代码签名，首次打开若被拦下，右键图标选「打开」，或到「系统设置 → 隐私与安全性」里点「仍要打开」。
 
 **浏览器**：双击 `markdown-novel-reader.html`。Chrome / Edge 下可以正常打开文件夹并保存；其它浏览器会退化为只读打开（保存时下载副本）。
 
@@ -72,7 +72,9 @@ npm ci
 
 产物在 `dist-mac/`。没有签名证书时 `identity: null` 会跳过签名，首次打开需要右键 →「打开」。
 
-**没有 Mac 也可以**：仓库带了 GitHub Actions（`.github/workflows/build.yml`），push 到 GitHub 后会自动在 macOS 机器上打出 arm64 / x64 两套 dmg 和 zip，在 Actions 页面的 Artifacts 里下载即可；同一个流程也会顺手打 Windows 的 exe。
+**没有 Mac 也可以**：仓库带了 GitHub Actions（`.github/workflows/build.yml`），push 到 GitHub 后会自动在 macOS 机器上打出 arm64 / x64 两套 zip，在 Actions 页面的 Artifacts 里下载即可；同一个流程也会顺手打 Windows 的 exe。
+
+> CI 上只出 zip，不出 dmg。dmg 的生成要用 `hdiutil` 挂载卷再用 Finder 摆图标，在无图形界面的 CI 机器上 `detach` 经常失败（卷已被系统自动卸载，再卸就报 No such file or directory）。zip 解压后就是完整的 `.app`，功能没有区别。想要 dmg 就在真实 Mac 上跑 `./build-mac.sh`。
 
 ## 快捷键
 
