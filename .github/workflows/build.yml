@@ -98,3 +98,30 @@ jobs:
           name: markdown-reader-win
           path: dist-win/*.exe
           if-no-files-found: warn
+
+  release:
+    name: 发布到 Releases
+    needs: [ mac, win ]
+    # 只在推 tag（v1.1.7 这种）时发版；平时 push main 只构建、不发布
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 汇总各平台产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-all
+          merge-multiple: true
+
+      - name: 列出产物
+        run: ls -lh dist-all
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-all/*.exe
+            dist-all/*.zip
+          draft: false
+          generate_release_notes: true
