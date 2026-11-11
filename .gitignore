@@ -24,6 +24,8 @@ dist-mac/
 
 # ---- 一次性调试脚本 ----
 .build/probe-*.js
+.build/ci-*.js
+.build/.ci-*.log
 .build/bounds-probe*.js
 .build/scan*.js
 .build/crop.js

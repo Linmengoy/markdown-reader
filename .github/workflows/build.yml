@@ -47,6 +47,7 @@ jobs:
             -c.directories.output=../dist-mac
 
       - name: 上传产物
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: markdown-reader-mac-${{ matrix.arch }}
