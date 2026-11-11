@@ -43,6 +43,8 @@
 
 **Windows（推荐）**：下载仓库 Releases 里的 `Markdown小说阅读器.exe`，双击即用 —— 单文件便携版，不安装、不写注册表，可直接读写本机文件。
 
+**macOS**：下载 Releases 里的 `Markdown小说阅读器-<版本>-arm64.dmg`（Apple 芯片）或 `-x64.dmg`（Intel），拖进「应用程序」。包未做代码签名，首次打开若被拦下，右键图标选「打开」，或到「系统设置 → 隐私与安全性」里点「仍要打开」。
+
 **浏览器**：双击 `markdown-novel-reader.html`。Chrome / Edge 下可以正常打开文件夹并保存；其它浏览器会退化为只读打开（保存时下载副本）。
 
 ## 自己打包 exe
@@ -57,7 +59,24 @@ npm install
 
 产物在 `dist/`，同时会复制一份到项目根目录。打包流程：目录版打包 → 写图标/版本信息 → 封装成 portable 单文件。
 
+## 自己打包 macOS 版
+
+`.dmg` 依赖 macOS 自带的 `hdiutil` 和 `codesign`，**只能在 Mac 上构建**（Windows / Linux 上做不出来）：
+
+```bash
+cd .build
+npm ci
+./build-mac.sh          # 出 arm64 + x64 的 dmg 与 zip
+./build-mac.sh --dir    # 只出 .app，方便本机试跑
+```
+
+产物在 `dist-mac/`。没有签名证书时 `identity: null` 会跳过签名，首次打开需要右键 →「打开」。
+
+**没有 Mac 也可以**：仓库带了 GitHub Actions（`.github/workflows/build.yml`），push 到 GitHub 后会自动在 macOS 机器上打出 arm64 / x64 两套 dmg 和 zip，在 Actions 页面的 Artifacts 里下载即可；同一个流程也会顺手打 Windows 的 exe。
+
 ## 快捷键
+
+macOS 上 `Ctrl` 换成 `⌘`（`Shift`+`Ctrl` 对应 `⇧⌘`），界面里的按键提示会自动跟着变。
 
 | 按键 | 作用 |
 | --- | --- |

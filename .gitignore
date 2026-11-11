@@ -6,7 +6,9 @@ yarn-error.log*
 # ---- 打包产物 ----
 dist/
 dist_*/
+dist-mac/
 *.exe
+*.dmg
 .build/app/
 .build/_leftover/
 .build/.udata*/

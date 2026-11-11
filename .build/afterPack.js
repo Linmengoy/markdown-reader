@@ -31,6 +31,11 @@ async function runRcedit(rcedit, args){
 }
 
 exports.default = async function(context){
+  // 只处理 Windows exe 的版本信息与图标；macOS 的图标由 icns 决定
+  if (context.electronPlatformName !== "win32"){
+    console.log("[afterPack] 非 Windows 目标，跳过");
+    return;
+  }
   const { appOutDir, packager } = context;
   const exeName = packager.appInfo.productFilename + ".exe";
   const exePath = path.join(appOutDir, exeName);
@@ -64,6 +69,9 @@ exports.default = async function(context){
   try {
     await runRcedit(rcedit, args);
     console.log("[afterPack] 图标与版本信息已写入 " + exeName);
+    // 给 build.sh 留个记号：这一步成功了，别在外面再重复写一遍
+    // （刚写完的 exe 句柄还没释放，重复写反而容易失败）
+    try { fs.writeFileSync(path.join(appOutDir, "..", ".rcedit-ok"), appInfo.version); } catch {}
   } catch (e) {
     console.log("[afterPack] rcedit 失败：" + (e.message || e));
   }

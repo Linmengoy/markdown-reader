@@ -4322,7 +4322,27 @@ function bindUI(){
         toast("打开失败：" + (err.message || err.name), 2600);
       }
     });
+
+    // macOS 应用菜单里的「打开文件 / 打开文件夹」
+    if(NATIVE.onMenu){
+      NATIVE.onMenu((action) => {
+        if(action === "open") openFile();
+        else if(action === "openFolder") pickFolder();
+      });
+    }
   }
+}
+
+/* macOS 上把提示里的 Ctrl 换成 ⌘，别让人去按一个不存在的键 */
+function localizeShortcuts(){
+  if(!NATIVE || NATIVE.platform !== "darwin") return;
+  const fix = s => String(s)
+    .replace(/Shift\s*\+\s*Ctrl\s*\+/gi, "⇧⌘")
+    .replace(/Ctrl\s*\+\s*/gi, "⌘");
+  document.querySelectorAll("[title]").forEach(el => {
+    const t = el.getAttribute("title");
+    if(t && /ctrl/i.test(t)) el.setAttribute("title", fix(t));
+  });
 }
 
 /* =====================================================================
@@ -4344,6 +4364,7 @@ async function init(){
   bindSettings();
   bindSkin();
   bindUI();
+  localizeShortcuts();
   updateStats();
   startExtWatch();         // 盯着磁盘：AI / 别的编辑器改了文件就自动读回来
 

@@ -16,10 +16,11 @@ const OUT = path.join(__dirname, "build");
 
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
 const PNG_SIZES = [64, 128];
+const ICON_PNG = 1024;  // electron-builder 生成 macOS icns 要求 ≥512，1024 最稳
 const CROP = 0.13;      // 源图四周留白多，裁掉让主体更饱满
 const RADIUS = 0.225;   // 圆角半径占边长比例
 
-function pageScript(dataURL, sizes, pngSizes, crop, radius){
+function pageScript(dataURL, sizes, pngSizes, crop, radius, iconPng){
   return `(async () => {
     const img = new Image();
     img.src = ${JSON.stringify(dataURL)};
@@ -82,9 +83,9 @@ function pageScript(dataURL, sizes, pngSizes, crop, radius){
     }
 
     const dibs = ${JSON.stringify(sizes)}.map(s => ({ size: s, b64: dib(s) }));
-    const png256 = paint(256, "rounded").toDataURL("image/png").split(",")[1];
+    const pngIcon = paint(${iconPng}, "rounded").toDataURL("image/png").split(",")[1];
     const circles = ${JSON.stringify(pngSizes)}.map(s => ({ size: s, b64: paint(s, "circle").toDataURL("image/png").split(",")[1] }));
-    return { dibs, png256, circles };
+    return { dibs, pngIcon, circles };
   })()`;
 }
 
@@ -102,7 +103,7 @@ app.whenReady().then(async () => {
 
   const win = new BrowserWindow({ show: false, width: 320, height: 200 });
   await win.loadURL("data:text/html,<body></body>");
-  const res = await win.webContents.executeJavaScript(pageScript(dataURL, ICO_SIZES, PNG_SIZES, CROP, RADIUS));
+  const res = await win.webContents.executeJavaScript(pageScript(dataURL, ICO_SIZES, PNG_SIZES, CROP, RADIUS, ICON_PNG));
   fs.mkdirSync(OUT, { recursive: true });
 
   /* 组装 ICO */
@@ -127,11 +128,11 @@ app.whenReady().then(async () => {
   }
   const ico = Buffer.concat([header, ...dir, ...items.map(i => i.buf)]);
   fs.writeFileSync(path.join(OUT, "icon.ico"), ico);
-  fs.writeFileSync(path.join(OUT, "icon.png"), Buffer.from(res.png256, "base64"));
+  fs.writeFileSync(path.join(OUT, "icon.png"), Buffer.from(res.pngIcon, "base64"));
   for (const c of res.circles) fs.writeFileSync(path.join(OUT, "logo-" + c.size + ".png"), Buffer.from(c.b64, "base64"));
 
   console.log("icon.ico " + (ico.length / 1024).toFixed(0) + " KB / " + items.length + " 尺寸（BMP 内嵌）");
-  console.log("icon.png 256px / 圆形 logo：" + res.circles.map(c => c.size + "px").join(", "));
+  console.log("icon.png " + ICON_PNG + "px（Windows 备用 + macOS icns 源）/ 圆形 logo：" + res.circles.map(c => c.size + "px").join(", "));
 
   win.destroy();
   app.quit();

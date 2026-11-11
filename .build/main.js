@@ -26,9 +26,13 @@ const fss = require("node:fs");
 const MD_RE = /\.(md|markdown|mdtxt|txt)$/i;
 const HTML = path.join(__dirname, "app", "markdown-novel-reader.html");
 const IS_SMOKE = process.env.MDNR_SMOKE === "1";
+// MDNR_MAC=1 仅用于在 Windows 上自检 macOS 分支（菜单构建等），生产不受影响
+const IS_MAC = process.env.MDNR_MAC === "1" || process.platform === "darwin";
+const APP_NAME = "Markdown小说阅读器";
 
 let win = null;
 let allowClose = false;
+let quitting = false;
 let pendingOpen = null;
 
 const userDir = () => app.getPath("userData");
@@ -285,6 +289,69 @@ function ensureOnScreen(){
   try { win.center(); } catch {}
 }
 
+/* ---------------- 菜单 ----------------
+   Windows/Linux 不需要菜单栏（顶栏已经有全部按钮）。
+   macOS 必须有：系统级的 Cmd+C/V/A/Z/Q/H 都靠菜单 role 提供，
+   把菜单整个设为 null 会让输入框里的复制粘贴和撤销全部失效。 */
+function buildAppMenu(){
+  if (!IS_MAC){
+    Menu.setApplicationMenu(null);
+    return;
+  }
+  const send = (action) => {
+    if (win && !win.isDestroyed()) win.webContents.send("app:menu", action);
+  };
+  const template = [
+    {
+      label: APP_NAME,
+      submenu: [
+        { role: "about", label: "关于 " + APP_NAME },
+        { type: "separator" },
+        { role: "hide", label: "隐藏 " + APP_NAME },
+        { role: "hideOthers", label: "隐藏其他" },
+        { role: "unhide", label: "全部显示" },
+        { type: "separator" },
+        { role: "quit", label: "退出 " + APP_NAME }
+      ]
+    },
+    {
+      label: "文件",
+      submenu: [
+        { label: "打开文件…", accelerator: "CmdOrCtrl+O", click: () => send("open") },
+        { label: "打开文件夹…", accelerator: "Shift+CmdOrCtrl+O", click: () => send("openFolder") },
+        { type: "separator" },
+        { role: "close", label: "关闭窗口" }
+      ]
+    },
+    {
+      label: "编辑",
+      submenu: [
+        { role: "undo", label: "撤销" },
+        { role: "redo", label: "重做" },
+        { type: "separator" },
+        { role: "cut", label: "剪切" },
+        { role: "copy", label: "复制" },
+        { role: "paste", label: "粘贴" },
+        { role: "selectAll", label: "全选" }
+      ]
+    },
+    {
+      label: "窗口",
+      submenu: [
+        { role: "minimize", label: "最小化" },
+        { role: "zoom", label: "缩放" },
+        { type: "separator" },
+        { role: "front", label: "前置全部窗口" }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  if (IS_SMOKE){
+    const m = Menu.getApplicationMenu();
+    console.log("SMOKE_MENU mac menu items=" + (m ? m.items.length : 0));
+  }
+}
+
 /* ---------------- 窗口 ---------------- */
 function createWindow(){
   const st = readState();
@@ -300,7 +367,8 @@ function createWindow(){
     backgroundColor: "#14161d",
     title: "Markdown 小说阅读器",
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "build", "icon.ico"),
+    // macOS 的窗口图标由 app bundle 的 icns 决定，BrowserWindow 的 icon 会被忽略
+    ...(IS_MAC ? {} : { icon: path.join(__dirname, "build", "icon.ico") }),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -311,7 +379,7 @@ function createWindow(){
     }
   });
 
-  Menu.setApplicationMenu(null);
+  buildAppMenu();
 
   win.once("ready-to-show", () => {
     // 显示前再兜一次底：确保窗口落在可见区域内，而不是开到屏幕外
@@ -463,6 +531,23 @@ function saveBounds(){
 }
 
 /* ---------------- 单实例 / 命令行打开 ---------------- */
+// macOS 从访达双击 / 拖到 Dock 图标上打开文件走的是 open-file 事件（不是命令行参数）
+// 这个事件可能在 ready 之前就到达，先记下来，等窗口建好再送进渲染进程
+app.on("open-file", (e, p) => {
+  e.preventDefault();
+  if (!p || !MD_RE.test(p)) return;
+  const full = path.resolve(p);
+  if (win && !win.isDestroyed() && win.webContents){
+    ensureOnScreen();
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send("app:openPath", full);
+  } else {
+    pendingOpen = full;
+  }
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock){
   app.quit();
@@ -481,9 +566,20 @@ if (!gotLock){
   });
 
   app.whenReady().then(() => {
+    if (IS_MAC){
+      try {
+        app.setAboutPanelOptions({
+          applicationName: "Markdown 小说阅读器",
+          applicationVersion: app.getVersion(),
+          version: app.getVersion(),
+          copyright: "Copyright © 2026"
+        });
+      } catch {}
+    }
     registerIpc();
     createWindow();
-    const file = pickFileArg(process.argv);
+    const file = pickFileArg(process.argv) || pendingOpen;
+    pendingOpen = null;
     if (file && win){
       win.webContents.once("did-finish-load", () => {
         setTimeout(() => win.webContents.send("app:openPath", file), 400);
@@ -491,7 +587,25 @@ if (!gotLock){
     }
   });
 
-  app.on("window-all-closed", () => { allowClose = true; app.quit(); });
+  // macOS：关掉窗口后应用仍留在 Dock，点图标要能重新开窗
+  app.on("activate", () => {
+    if (!win || win.isDestroyed()){
+      allowClose = false;
+      quitting = false;
+      createWindow();
+    } else {
+      win.show();
+      win.focus();
+    }
+  });
+
+  app.on("before-quit", () => { quitting = true; });
+
+  app.on("window-all-closed", () => {
+    if (IS_MAC && !quitting) return;    // macOS 惯例：窗口关掉不等于退出
+    allowClose = true;
+    app.quit();
+  });
 }
 
 function pickFileArg(argv){

@@ -1,11 +1,21 @@
 {
   "name": "novel-reader",
   "productName": "Markdown小说阅读器",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Markdown 小说阅读器",
   "main": "main.js",
   "author": "local",
   "license": "MIT",
+  "scripts": {
+    "icon": "electron make-icon.js",
+    "build:win": "bash build.sh",
+    "build:mac": "bash build-mac.sh",
+    "build:mac:dir": "bash build-mac.sh --dir"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
   "build": {
     "appId": "com.local.mdnovelreader",
     "productName": "Markdown小说阅读器",
@@ -37,6 +47,31 @@
     "portable": {
       "unpackDirName": "MDNovelReader",
       "artifactName": "Markdown小说阅读器.exe"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "artifactName": "Markdown小说阅读器-${version}-${arch}.${ext}",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": true,
+      "extendInfo": {
+        "CFBundleDisplayName": "Markdown 小说阅读器",
+        "CFBundleName": "Markdown小说阅读器",
+        "NSHumanReadableCopyright": "Copyright © 2026"
+      }
+    },
+    "dmg": {
+      "title": "Markdown 小说阅读器 ${version}",
+      "contents": [
+        { "x": 150, "y": 190 },
+        { "x": 400, "y": 190, "type": "link", "path": "/Applications" }
+      ]
     },
     "afterPack": "afterPack.js"
   }

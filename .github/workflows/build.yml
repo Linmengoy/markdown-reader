@@ -1,0 +1,77 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    name: macOS ${{ matrix.arch }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ arm64, x64 ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装依赖
+        working-directory: .build
+        run: npm ci
+
+      - name: 同步页面并生成图标
+        working-directory: .build
+        run: |
+          cp ../markdown-novel-reader.html app/
+          npx electron make-icon.js
+
+      - name: 打包 dmg / zip
+        working-directory: .build
+        run: |
+          npx electron-builder --mac --${{ matrix.arch }} --publish never \
+            -c.directories.output=../dist-mac
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-reader-mac-${{ matrix.arch }}
+          path: |
+            dist-mac/*.dmg
+            dist-mac/*.zip
+          if-no-files-found: warn
+
+  win:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装依赖
+        working-directory: .build
+        run: npm ci
+
+      - name: 打包单文件 exe
+        working-directory: .build
+        shell: bash
+        run: |
+          cp ../markdown-novel-reader.html app/
+          node_modules/.bin/electron make-icon.js
+          node_modules/.bin/electron-builder --win portable --x64 \
+            -c.directories.output=../dist-win
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-reader-win
+          path: dist-win/*.exe
+          if-no-files-found: warn

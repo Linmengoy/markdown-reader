@@ -45,7 +45,8 @@ const api = {
   },
 
   onOpenPath: listen("app:openPath"),
-  onWillClose: listen("app:willClose")
+  onWillClose: listen("app:willClose"),
+  onMenu: listen("app:menu")
 };
 
 contextBridge.exposeInMainWorld("nativeFS", api);
