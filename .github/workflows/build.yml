@@ -47,7 +47,9 @@ jobs:
           # dmg 在 CI 上不稳——hdiutil detach 常因挂载卷已被系统自动卸载而报
           # "No such file or directory"，属于无头环境的竞态，与卷名无关。
           # 需要 dmg 时在真实 Mac 上跑 build-mac.sh（本地有 GUI，成功率高）。
+          # 产物名同样用 ASCII，理由见 win 任务里的注释。
           ./node_modules/.bin/electron-builder --mac zip --${{ matrix.arch }} --publish never \
+            -c.mac.artifactName='MarkdownReader-${version}-mac-${{ matrix.arch }}.${ext}' \
             -c.directories.output=../dist-mac
 
       - name: 上传产物
@@ -88,8 +90,11 @@ jobs:
             git checkout -- build/ 2>/dev/null || true
             echo "::warning::图标生成失败，沿用仓库中已提交的 build/ 图标"
           fi
+          # 产物名用 ASCII：action-gh-release 在 Linux 上会把中文文件名弄丢
+          # （Markdown小说阅读器.exe 变成 Markdown.exe），单引号防止 shell 展开 ${version}
           node_modules/.bin/electron-builder --win portable --x64 \
             -c.win.signAndEditExecutable=true \
+            -c.win.artifactName='MarkdownReader-${version}-win-x64.exe' \
             -c.directories.output=../dist-win
 
       - name: 上传产物

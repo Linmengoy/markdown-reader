@@ -41,9 +41,9 @@
 
 ## 直接用
 
-**Windows（推荐）**：下载仓库 Releases 里的 `Markdown小说阅读器.exe`，双击即用 —— 单文件便携版，不安装、不写注册表，可直接读写本机文件。
+**Windows（推荐）**：下载仓库 Releases 里的 `MarkdownReader-<版本>-win-x64.exe`，双击即用 —— 单文件便携版，不安装、不写注册表，可直接读写本机文件。（自己在本机构建时产物叫 `Markdown小说阅读器.exe`。）
 
-**macOS**：下载 `Markdown小说阅读器-<版本>-arm64.zip`（Apple 芯片）或 `-x64.zip`（Intel），解压后把 `.app` 拖进「应用程序」。包未做代码签名，首次打开若被拦下，右键图标选「打开」，或到「系统设置 → 隐私与安全性」里点「仍要打开」。
+**macOS**：下载 `MarkdownReader-<版本>-mac-arm64.zip`（Apple 芯片）或 `-mac-x64.zip`（Intel），解压后把 `.app` 拖进「应用程序」。包未做代码签名，首次打开若被拦下，右键图标选「打开」，或到「系统设置 → 隐私与安全性」里点「仍要打开」。
 
 **浏览器**：双击 `markdown-novel-reader.html`。Chrome / Edge 下可以正常打开文件夹并保存；其它浏览器会退化为只读打开（保存时下载副本）。
 
