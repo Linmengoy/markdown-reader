@@ -91,10 +91,12 @@ jobs:
             echo "::warning::图标生成失败，沿用仓库中已提交的 build/ 图标"
           fi
           # 产物名用 ASCII：action-gh-release 在 Linux 上会把中文文件名弄丢
-          # （Markdown小说阅读器.exe 变成 Markdown.exe），单引号防止 shell 展开 ${version}
+          # （Markdown小说阅读器.exe 变成 Markdown.exe），单引号防止 shell 展开 ${version}。
+          # portable 的 artifactName 优先级高于 win，两个都要覆盖。
           node_modules/.bin/electron-builder --win portable --x64 \
             -c.win.signAndEditExecutable=true \
             -c.win.artifactName='MarkdownReader-${version}-win-x64.exe' \
+            -c.portable.artifactName='MarkdownReader-${version}-win-x64.exe' \
             -c.directories.output=../dist-win
 
       - name: 上传产物
